@@ -28,7 +28,7 @@ namespace ChainDrop
 
         const float SwingW = 2.2f;
         const float Gravity = 26f;
-        public const float KillHeight = 1.0f;
+        public const float KillHeight = 1.3f;
 
         public static Crate Build(GameManager gm, CrateDef d, Transform parent, Theme th, float chainTopY)
         {

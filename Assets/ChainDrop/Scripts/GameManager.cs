@@ -307,7 +307,7 @@ namespace ChainDrop
             {
                 if (r.Dead) continue;
                 var d = r.Pos - c.Ground;
-                if (Mathf.Abs(d.x) < half + r.Radius * 0.6f && Mathf.Abs(d.y) < half * 0.85f + r.Radius * 0.6f) r.Hit(c);
+                if (Mathf.Abs(d.x) < half + r.Radius && Mathf.Abs(d.y) < half * 0.9f + r.Radius) r.Hit(c);
             }
             if (State == GameState.Playing)
             {

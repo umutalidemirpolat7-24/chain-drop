@@ -34,9 +34,9 @@ namespace ChainDrop
             float w = 0.72f, h = 0.9f;
             switch (type)
             {
-                case "runner": r.speed = 3.3f; r.hp = 1; body = Util.Hex("#e0a020"); w = 0.6f; h = 0.75f; r.Radius = 0.3f; break;
-                case "tank": r.speed = 1.15f; r.hp = 2; body = Util.Hex("#7a5cc8"); w = 1.05f; h = 1.1f; r.Radius = 0.52f; break;
-                default: r.speed = 1.7f; r.hp = 1; r.Radius = 0.36f; break;
+                case "runner": r.speed = 2.1f; r.hp = 1; body = Util.Hex("#e0a020"); w = 0.6f; h = 0.75f; r.Radius = 0.3f; break;
+                case "tank": r.speed = 0.85f; r.hp = 2; body = Util.Hex("#7a5cc8"); w = 1.05f; h = 1.1f; r.Radius = 0.52f; break;
+                default: r.speed = 1.15f; r.hp = 1; r.Radius = 0.36f; break;
             }
 
             r.rb = go.AddComponent<Rigidbody2D>();
