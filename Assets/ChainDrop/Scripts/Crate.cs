@@ -6,161 +6,147 @@ namespace ChainDrop
     public class Obstacle : MonoBehaviour { }
 
     /// <summary>
-    /// A steel crate hanging above the arena on a chain. Its shadow on the floor shows where it will land.
-    /// Tap the crate (or its chain) to shoot the chain; it falls and crushes whatever is under the shadow.
+    /// A steel crate hanging from the ceiling on a real 3D chain (a pendulum).
+    /// A red marker on the floor shows exactly where it will land. Tap it to shoot the chain.
     /// </summary>
     public class Crate : MonoBehaviour
     {
         public float Size { get; private set; }
-        public float Height { get; private set; }
         public bool Released { get; private set; }
         public bool Landed { get; private set; }
-        public Vector2 Ground => pos;                       // floor position (shadow center)
-        public Vector2 Visual => pos + new Vector2(0, (Height + Size) * GameManager.Oblique);   // top face center on screen
+        public float Bottom => body.position.y - Size / 2f;       // height of the crate's underside
+        public Vector3 Center => body.position;
+        public Vector2 Ground => Util.G(body.position);
+        public Vector3 ChainPoint => body.position + Vector3.up * (Size / 2f + 0.25f);
+        public Vector3 PivotPoint => pivot.position;
 
         GameManager gm;
-        Vector2 basePos, pos, vel, swingAxis;
-        float swingAmp, swingT, vz, chainTopY;
-        Vector2 chainCut;
+        Transform pivot, body, marker;
+        Vector3 vel, prevPos, swingAxis, spin;
+        float swingAngle, swingT, length;
 
-        SpriteRenderer shadow, front, top, strapA, strapB, rim, chain;
-        Transform body;
-
-        const float SwingW = 2.2f;
+        public const float PivotY = 15f;
+        public const float KillHeight = 1.25f;
+        const float SwingW = 2.0f;
         const float Gravity = 26f;
-        public const float KillHeight = 1.3f;
+        const float LinkSpacing = 0.2f;
 
-        public static Crate Build(GameManager gm, CrateDef d, Transform parent, Theme th, float chainTopY)
+        public static Crate Build(GameManager gm, CrateDef d, Transform parent, Theme th)
         {
             var go = new GameObject("Crate");
             go.transform.SetParent(parent, false);
             var c = go.AddComponent<Crate>();
             c.gm = gm;
-            c.Size = d.size > 0.1f ? d.size : 1.6f;
-            c.Height = d.h > 0.1f ? d.h : 5f;
-            c.basePos = c.pos = new Vector2(d.x, d.y);
-            c.swingAmp = d.swing;
-            c.swingAxis = d.axis == "y" ? Vector2.up : Vector2.right;
-            c.chainTopY = chainTopY;
-            c.swingT = Random.Range(0f, 6f);
-
+            c.Size = d.size > 0.1f ? d.size : 2f;
+            float h = d.h > 0.1f ? d.h : 4.5f;
             float s = c.Size;
-            c.shadow = Util.Blob("shadow", go.transform, Vector2.zero, new Vector2(s * 1.3f, s * 1.0f), new Color(0, 0, 0, 0.4f), 10);
 
+            c.pivot = new GameObject("Pivot").transform;
+            c.pivot.SetParent(go.transform, false);
+            c.pivot.position = new Vector3(d.x, PivotY, d.z);
+            c.length = PivotY - (h + s);
+
+            // Chain: alternating links from the ceiling down to the crate
+            var linkMat = Util.Mat(th.chain, 0.7f, 0.9f);
+            int n = Mathf.CeilToInt(c.length / LinkSpacing);
+            for (int i = 0; i < n; i++)
+            {
+                bool alt = i % 2 == 0;
+                Util.Cube("link", c.pivot, new Vector3(0, -i * LinkSpacing - LinkSpacing / 2f, 0),
+                          alt ? new Vector3(0.14f, 0.24f, 0.04f) : new Vector3(0.04f, 0.24f, 0.14f), linkMat);
+            }
+            Util.Cube("hook", c.pivot, new Vector3(0, -c.length + 0.1f, 0), new Vector3(0.3f, 0.12f, 0.3f), Util.Mat(th.metalDark, 0.5f, 0.8f));
+
+            // Crate body (steel box with straps)
             c.body = new GameObject("Body").transform;
-            c.body.SetParent(go.transform, false);
-            c.front = Util.Box("front", c.body, Vector2.zero, Vector2.one, th.metalDark, 0);
-            c.top = Util.RBox("top", c.body, Vector2.zero, Vector2.one, th.metal, 0);
-            c.rim = Util.RBox("rim", c.body, Vector2.zero, Vector2.one, th.metal.Mul(0.8f), 0);
-            c.strapA = Util.Box("strapA", c.body, Vector2.zero, Vector2.one, th.metal.Mul(1.15f), 0);
-            c.strapB = Util.Box("strapB", c.body, Vector2.zero, Vector2.one, th.metal.Mul(1.15f), 0);
+            c.body.SetParent(c.pivot, false);
+            c.body.localPosition = new Vector3(0, -c.length - s / 2f, 0);
+            var steel = Util.Mat(th.metal, 0.55f, 0.75f);
+            var dark = Util.Mat(th.metalDark, 0.4f, 0.6f);
+            var accent = Util.Mat(th.accent, 0.4f, 0.1f);
+            Util.Cube("box", c.body, Vector3.zero, Vector3.one * s, steel);
+            Util.Cube("strapX", c.body, Vector3.zero, new Vector3(s * 1.02f, s * 0.14f, s * 1.02f), dark);
+            Util.Cube("strapY", c.body, Vector3.zero, new Vector3(s * 0.14f, s * 1.02f, s * 1.02f), dark);
+            Util.Cube("stripe", c.body, new Vector3(0, -s * 0.38f, 0), new Vector3(s * 1.03f, s * 0.08f, s * 1.03f), accent);
+            Util.Cube("lid", c.body, new Vector3(0, s * 0.5f, 0), new Vector3(s * 0.7f, 0.06f, s * 0.7f), dark);
 
-            var chainGo = new GameObject("Chain");
-            chainGo.transform.SetParent(go.transform, false);
-            c.chain = chainGo.AddComponent<SpriteRenderer>();
-            c.chain.sprite = Util.Chain;
-            c.chain.drawMode = SpriteDrawMode.Tiled;
-            c.chain.color = th.chain;
+            // Landing marker on the floor (red outline + dark fill)
+            c.marker = new GameObject("Marker").transform;
+            c.marker.SetParent(go.transform, false);
+            var red = Util.Glow(Util.Hex("#ff3b30"), 1.4f);
+            float m = s * 0.5f, t = 0.08f;
+            Util.Cube("mN", c.marker, new Vector3(0, 0, m), new Vector3(s, 0.02f, t), red);
+            Util.Cube("mS", c.marker, new Vector3(0, 0, -m), new Vector3(s, 0.02f, t), red);
+            Util.Cube("mE", c.marker, new Vector3(m, 0, 0), new Vector3(t, 0.02f, s), red);
+            Util.Cube("mW", c.marker, new Vector3(-m, 0, 0), new Vector3(t, 0.02f, s), red);
+            Util.Cube("mFill", c.marker, Vector3.zero, new Vector3(s * 0.92f, 0.01f, s * 0.92f), Util.Mat(Util.Hex("#3a1414"), 0.1f));
 
-            c.UpdateVisuals();
+            if (Mathf.Abs(d.swing) > 0.01f)
+            {
+                c.swingAngle = Mathf.Asin(Mathf.Clamp(d.swing / Mathf.Max(1f, c.length + s / 2f), -0.9f, 0.9f));
+                c.swingAxis = d.axis == "z" ? Vector3.right : Vector3.forward;   // rotating about Z swings along X
+                c.swingT = Random.Range(0f, 6f);
+            }
+            c.prevPos = c.body.position;
+            c.UpdateMarker();
             return c;
         }
 
         void Update()
         {
-            float dt = Time.deltaTime;
-            if (!Released)
+            float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+
+            // The chain keeps swinging (and slowly settles once the crate is gone)
+            if (swingAngle != 0f)
             {
                 swingT += dt;
-                pos = basePos + swingAxis * swingAmp * Mathf.Sin(swingT * SwingW);
+                if (Released) swingAngle *= 1f - dt * 0.8f;
+                pivot.localRotation = Quaternion.AngleAxis(swingAngle * Mathf.Sin(swingT * SwingW) * Mathf.Rad2Deg, swingAxis);
+            }
+
+            if (!Released)
+            {
+                vel = (body.position - prevPos) / dt;
+                prevPos = body.position;
             }
             else if (!Landed)
             {
-                vz -= Gravity * dt;
-                Height = Mathf.Max(0f, Height + vz * dt);
-                pos += vel * dt;
-                if (Height < KillHeight) gm.CrushCheck(this);
-                if (Height <= 0f) Land();
+                vel.y -= Gravity * dt;
+                body.position += vel * dt;
+                body.Rotate(spin * dt, Space.World);
+                if (Bottom < KillHeight) gm.CrushCheck(this);
+                if (Bottom <= 0f) Land();
             }
-            UpdateVisuals();
+            UpdateMarker();
         }
 
-        public bool HitTest(Vector2 world)
+        void UpdateMarker()
         {
-            if (Released) return false;
-            var v = Visual;
-            if (Mathf.Abs(world.x - v.x) < Size * 0.7f && world.y > v.y - Size * 0.4f - Size * GameManager.Oblique - 0.2f && world.y < v.y + Size * 0.5f)
-                return true;
-            // the chain above the crate also counts
-            return Mathf.Abs(world.x - ChainBottom.x) < 0.45f && world.y > ChainBottom.y && world.y < chainTopY;
+            if (Landed) { marker.gameObject.SetActive(false); return; }
+            var p = body.position;
+            marker.position = new Vector3(p.x, 0.03f, p.z);
+            marker.rotation = Quaternion.identity;
         }
-
-        public Vector2 ChainBottom => Visual + new Vector2(0, Size * 0.35f);
 
         public void Release()
         {
             if (Released) return;
             Released = true;
-            vel = swingAxis * swingAmp * SwingW * Mathf.Cos(swingT * SwingW);   // keeps the swing momentum
-            vz = 0f;
-            chainCut = ChainBottom;
+            vel.y = Mathf.Min(vel.y, 0f) - 0.5f;
+            spin = new Vector3(Random.Range(-30f, 30f), Random.Range(-40f, 40f), Random.Range(-30f, 30f));
+            body.SetParent(transform, true);    // detach from the chain, keep world position
         }
 
         void Land()
         {
             Landed = true;
-            var ob = new GameObject("Obstacle");
-            ob.transform.SetParent(transform, false);
-            ob.transform.localPosition = pos;
-            var col = ob.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(Size * 0.92f, Size * 0.8f);
-            ob.AddComponent<Obstacle>();
+            var p = body.position;
+            body.position = new Vector3(p.x, Size / 2f, p.z);
+            body.rotation = Quaternion.Euler(0, body.eulerAngles.y, 0);
+            var col = body.gameObject.AddComponent<BoxCollider>();
+            col.size = new Vector3(Size * 0.95f, Size, Size * 0.95f);
+            body.gameObject.AddComponent<Obstacle>();
             gm.OnCrateLanded(this);
-        }
-
-        void UpdateVisuals()
-        {
-            float s = Size;
-            Vector2 local = pos;   // this object always sits at the world origin; children use world-space coords
-
-            // Shadow: grows sharper and darker as the crate gets closer to the floor
-            float k = Mathf.Clamp01(Height / 8f);
-            shadow.transform.localPosition = local;
-            shadow.transform.localScale = new Vector3(s * (1.35f - 0.35f * (1 - k)), s * (1.05f - 0.25f * (1 - k)), 1);
-            shadow.color = new Color(0, 0, 0, Mathf.Lerp(0.6f, 0.22f, k));
-
-            // Cube in 3/4 view: front face + top face
-            float ob = GameManager.Oblique;
-            float topY = local.y + (Height + s) * ob;
-            float topH = s * 0.82f;
-            float frontH = s * ob;
-            body.localPosition = new Vector3(local.x, 0, 0);
-            top.transform.localPosition = new Vector3(0, topY, 0);
-            top.transform.localScale = new Vector3(s, topH, 1);
-            rim.transform.localPosition = new Vector3(0, topY, 0);
-            rim.transform.localScale = new Vector3(s * 0.74f, topH * 0.7f, 1);
-            strapA.transform.localPosition = new Vector3(0, topY, 0);
-            strapA.transform.localScale = new Vector3(s * 0.12f, topH * 0.7f, 1);
-            strapB.transform.localPosition = new Vector3(0, topY, 0);
-            strapB.transform.localScale = new Vector3(s * 0.74f, topH * 0.1f, 1);
-            front.transform.localPosition = new Vector3(0, topY - topH / 2f - frontH / 2f + 0.02f, 0);
-            front.transform.localScale = new Vector3(s, frontH, 1);
-
-            int order = Landed ? Util.DepthOrder(local.y - s * 0.4f) : Released ? 6000 : 5000 + Util.DepthOrder(local.y) / 10;
-            front.sortingOrder = order;
-            top.sortingOrder = order + 1;
-            rim.sortingOrder = order + 2;
-            strapA.sortingOrder = order + 3;
-            strapB.sortingOrder = order + 3;
-            chain.sortingOrder = Released ? 5000 : order - 1;
-
-            // Chain from the crate (or the cut point) up to the ceiling pivot, off the top of the screen
-            Vector2 bottom = Released ? chainCut : ChainBottom;
-            Vector2 anchor = new Vector2(basePos.x, chainTopY);
-            Vector2 dir = anchor - bottom;
-            chain.transform.localPosition = bottom;
-            chain.transform.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
-            chain.size = new Vector2(0.25f, Mathf.Max(0.1f, dir.magnitude));
         }
     }
 }

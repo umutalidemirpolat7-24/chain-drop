@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace ChainDrop
 {
@@ -8,65 +7,83 @@ namespace ChainDrop
     {
         public float Radius { get; private set; }
         public bool Dead { get; private set; }
-        public Vector2 Pos => rb.position;
+        public Vector2 Pos => Util.G(rb.position);
 
         GameManager gm;
-        Rigidbody2D rb;
-        SortingGroup sg;
-        Transform visual, eye;
-        SpriteRenderer blink;
-        SpriteRenderer[] parts;
-        Color[] baseColors;
+        Rigidbody rb;
+        Transform visual, beacon;
+        Renderer[] parts;
+        Material[] baseMats;
+        Material flashMat;
         float speed, stunUntil, flashUntil, walkT, sideSign = 1f, sideUntil;
         int hp;
         Crate lastHitBy;
+        Color bodyColor;
 
         public static Robot Spawn(GameManager gm, RobotDef d, Transform parent, Theme th)
         {
             string type = string.IsNullOrEmpty(d.type) ? "walker" : d.type;
             var go = new GameObject("Robot_" + type);
             go.transform.SetParent(parent, false);
-            go.transform.position = new Vector2(d.x, d.y);
+            go.transform.position = new Vector3(d.x, 0, d.z);
 
             var r = go.AddComponent<Robot>();
             r.gm = gm;
             Color body = th.robot;
-            float w = 0.72f, h = 0.9f;
+            float k = 1f;   // size multiplier
             switch (type)
             {
-                case "runner": r.speed = 2.1f; r.hp = 1; body = Util.Hex("#e0a020"); w = 0.6f; h = 0.75f; r.Radius = 0.3f; break;
-                case "tank": r.speed = 0.85f; r.hp = 2; body = Util.Hex("#7a5cc8"); w = 1.05f; h = 1.1f; r.Radius = 0.52f; break;
-                default: r.speed = 1.15f; r.hp = 1; r.Radius = 0.36f; break;
+                case "runner": r.speed = 2.1f; r.hp = 1; body = Util.Hex("#e0a020"); k = 0.8f; break;
+                case "tank": r.speed = 0.85f; r.hp = 2; body = Util.Hex("#7a5cc8"); k = 1.35f; break;
+                default: r.speed = 1.15f; r.hp = 1; break;
             }
+            r.bodyColor = body;
+            r.Radius = 0.42f * k;
 
-            r.rb = go.AddComponent<Rigidbody2D>();
-            r.rb.gravityScale = 0f;
-            r.rb.freezeRotation = true;
-            r.rb.mass = type == "tank" ? 4f : 1f;
-            r.rb.interpolation = RigidbodyInterpolation2D.Interpolate;
-            var col = go.AddComponent<CircleCollider2D>();
+            r.rb = go.AddComponent<Rigidbody>();
+            r.rb.useGravity = false;
+            r.rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
+            r.rb.interpolation = RigidbodyInterpolation.Interpolate;
+            r.rb.mass = type == "tank" ? 6f : 1f;
+            var col = go.AddComponent<CapsuleCollider>();
             col.radius = r.Radius;
-            r.sg = go.AddComponent<SortingGroup>();
+            col.height = 1.4f * k;
+            col.center = new Vector3(0, 0.7f * k + 0.06f, 0);
 
-            Util.Blob("shadow", go.transform, new Vector2(0, -0.02f), new Vector2(w * 1.5f, w * 0.75f), new Color(0, 0, 0, 0.45f), 0);
             r.visual = new GameObject("Visual").transform;
             r.visual.SetParent(go.transform, false);
             var v = r.visual;
-            Util.RBox("treadL", v, new Vector2(-w * 0.36f, 0.1f), new Vector2(w * 0.28f, h * 0.28f), th.metalDark.Mul(0.7f), 1);
-            Util.RBox("treadR", v, new Vector2(w * 0.36f, 0.1f), new Vector2(w * 0.28f, h * 0.28f), th.metalDark.Mul(0.7f), 1);
-            Util.RBox("body", v, new Vector2(0, h * 0.45f), new Vector2(w, h * 0.6f), body, 2);
-            Util.RBox("chest", v, new Vector2(0, h * 0.4f), new Vector2(w * 0.6f, h * 0.22f), body.Mul(0.75f), 3);
-            Util.RBox("head", v, new Vector2(0, h * 0.92f), new Vector2(w * 0.78f, h * 0.36f), body.Mul(0.88f), 4);
-            Util.RBox("visor", v, new Vector2(0, h * 0.92f), new Vector2(w * 0.6f, h * 0.16f), new Color(0.05f, 0.05f, 0.07f), 5);
-            r.eye = Util.Dot("eye", v, new Vector2(0, h * 0.92f), h * 0.13f, Util.Hex("#ff3b30"), 6).transform;
-            Util.Box("antenna", v, new Vector2(w * 0.2f, h * 1.2f), new Vector2(0.05f, h * 0.2f), th.metalDark, 3);
-            r.blink = Util.Dot("blink", v, new Vector2(w * 0.2f, h * 1.32f), 0.1f, Util.Hex("#ff3b30"), 4);
-            if (type == "tank")
-                Util.RBox("armor", v, new Vector2(0, h * 0.5f), new Vector2(w * 1.12f, h * 0.18f), th.metal, 6);
+            var bodyMat = Util.Mat(body, 0.5f, 0.5f);
+            var darkMat = Util.Mat(th.metalDark.Mul(0.7f), 0.4f, 0.6f);
+            var visorMat = Util.Mat(new Color(0.04f, 0.04f, 0.06f), 0.9f, 0.2f);
+            var eyeMat = Util.Glow(Util.Hex("#ff3b30"), 3f);
 
-            r.parts = v.GetComponentsInChildren<SpriteRenderer>();
-            r.baseColors = new Color[r.parts.Length];
-            for (int i = 0; i < r.parts.Length; i++) r.baseColors[i] = r.parts[i].color;
+            // Tracks
+            Util.Cube("trackL", v, new Vector3(-0.3f * k, 0.18f * k, 0), new Vector3(0.22f * k, 0.36f * k, 0.8f * k), darkMat);
+            Util.Cube("trackR", v, new Vector3(0.3f * k, 0.18f * k, 0), new Vector3(0.22f * k, 0.36f * k, 0.8f * k), darkMat);
+            // Body + chest plate
+            Util.Cube("body", v, new Vector3(0, 0.68f * k, 0), new Vector3(0.7f * k, 0.6f * k, 0.6f * k), bodyMat);
+            Util.Cube("chest", v, new Vector3(0, 0.66f * k, 0.31f * k), new Vector3(0.42f * k, 0.3f * k, 0.04f), Util.Mat(body.Mul(0.7f), 0.5f, 0.5f));
+            // Arms
+            Util.Cube("armL", v, new Vector3(-0.45f * k, 0.65f * k, 0.1f * k), new Vector3(0.14f * k, 0.45f * k, 0.18f * k), darkMat);
+            Util.Cube("armR", v, new Vector3(0.45f * k, 0.65f * k, 0.1f * k), new Vector3(0.14f * k, 0.45f * k, 0.18f * k), darkMat);
+            // Head with visor and glowing eye
+            Util.Cube("head", v, new Vector3(0, 1.15f * k, 0), new Vector3(0.5f * k, 0.34f * k, 0.46f * k), bodyMat);
+            Util.Cube("visor", v, new Vector3(0, 1.16f * k, 0.22f * k), new Vector3(0.4f * k, 0.12f * k, 0.04f), visorMat);
+            Util.Prim(PrimitiveType.Sphere, "eye", v, new Vector3(0, 1.16f * k, 0.25f * k), Vector3.one * 0.1f * k, eyeMat);
+            // Antenna + blinking beacon
+            Util.Prim(PrimitiveType.Cylinder, "antenna", v, new Vector3(0.15f * k, 1.42f * k, 0), new Vector3(0.03f, 0.12f * k, 0.03f), darkMat);
+            r.beacon = Util.Prim(PrimitiveType.Sphere, "beacon", v, new Vector3(0.15f * k, 1.58f * k, 0), Vector3.one * 0.08f, eyeMat).transform;
+            if (type == "tank")
+            {
+                Util.Cube("armorL", v, new Vector3(-0.42f * k, 0.95f * k, 0), new Vector3(0.12f, 0.2f * k, 0.6f * k), Util.Mat(th.metal, 0.6f, 0.8f));
+                Util.Cube("armorR", v, new Vector3(0.42f * k, 0.95f * k, 0), new Vector3(0.12f, 0.2f * k, 0.6f * k), Util.Mat(th.metal, 0.6f, 0.8f));
+            }
+
+            r.parts = v.GetComponentsInChildren<Renderer>();
+            r.baseMats = new Material[r.parts.Length];
+            for (int i = 0; i < r.parts.Length; i++) r.baseMats[i] = r.parts[i].sharedMaterial;
+            r.flashMat = Util.Glow(Color.white, 1.5f);
             return r;
         }
 
@@ -75,49 +92,47 @@ namespace ChainDrop
             if (Dead) return;
             if (gm.State != GameState.Playing || Time.time < stunUntil)
             {
-                rb.SetVel(Vector2.Lerp(rb.GetVel(), Vector2.zero, 0.2f));
+                rb.SetVel(Vector3.Lerp(rb.GetVel(), Vector3.zero, 0.15f));
                 return;
             }
 
-            Vector2 to = gm.player.Pos - rb.position;
+            Vector3 to = Util.W(gm.player.Pos - Pos);
             if (to.sqrMagnitude < 0.0001f) return;
-            Vector2 dir = to.normalized;
+            Vector3 dir = to.normalized;
 
             // Simple obstacle avoidance: if a landed crate is ahead, slide around it
             bool blocked = false;
-            foreach (var hit in Physics2D.CircleCastAll(rb.position, Radius * 0.9f, dir, 0.9f))
+            var origin = rb.position + Vector3.up * 0.5f;
+            foreach (var hit in Physics.SphereCastAll(origin, Radius * 0.9f, dir, 1.0f))
             {
                 if (hit.collider == null || hit.collider.GetComponent<Obstacle>() == null) continue;
                 blocked = true;
                 if (Time.time > sideUntil)
                 {
-                    float cross = dir.x * (hit.point.y - rb.position.y) - dir.y * (hit.point.x - rb.position.x);
+                    var rel = hit.point - rb.position;
+                    float cross = dir.x * rel.z - dir.z * rel.x;
                     sideSign = cross > 0 ? -1f : 1f;
                     sideUntil = Time.time + 0.6f;
                 }
                 break;
             }
-            Vector2 steer = blocked ? (new Vector2(-dir.y, dir.x) * sideSign + dir * 0.25f).normalized : dir;
-            rb.SetVel(Vector2.Lerp(rb.GetVel(), steer * speed, 0.35f));
-            walkT += Time.fixedDeltaTime * speed * 5f;
+            Vector3 steer = blocked ? (new Vector3(-dir.z, 0, dir.x) * sideSign + dir * 0.25f).normalized : dir;
+            rb.SetVel(Vector3.Lerp(rb.GetVel(), steer * speed, 0.3f));
+            walkT += Time.fixedDeltaTime * speed * 6f;
         }
 
         void Update()
         {
-            sg.sortingOrder = Util.DepthOrder(transform.position.y);
             if (Dead) return;
-
             var vel = rb.GetVel();
-            if (vel.sqrMagnitude > 0.01f)
-            {
-                Vector2 d = vel.normalized;
-                eye.localPosition = new Vector3(d.x * 0.16f, eye.localPosition.y, 0);
-            }
+            vel.y = 0;
+            if (vel.sqrMagnitude > 0.02f)
+                visual.rotation = Quaternion.Slerp(visual.rotation, Quaternion.LookRotation(vel.normalized), Time.deltaTime * 10f);
             visual.localPosition = new Vector3(0, Mathf.Abs(Mathf.Sin(walkT)) * 0.05f, 0);
-            blink.enabled = Mathf.Repeat(Time.time * 2f, 1f) < 0.5f;
+            beacon.gameObject.SetActive(Mathf.Repeat(Time.time * 2f, 1f) < 0.5f);
 
             bool flash = Time.time < flashUntil;
-            for (int i = 0; i < parts.Length; i++) parts[i].color = flash ? Color.white : baseColors[i];
+            for (int i = 0; i < parts.Length; i++) parts[i].sharedMaterial = flash ? flashMat : baseMats[i];
         }
 
         /// <summary>Called by a falling crate whose footprint overlaps this robot.</summary>
@@ -131,9 +146,9 @@ namespace ChainDrop
             // Tank survives the first hit: stunned and knocked away from the crate
             stunUntil = Time.time + 1.1f;
             flashUntil = Time.time + 0.18f;
-            Vector2 away = rb.position - crate.Ground;
+            Vector2 away = Pos - crate.Ground;
             away = away.sqrMagnitude < 0.01f ? Vector2.down : away.normalized;
-            rb.SetVel(away * 7f);
+            rb.SetVel(Util.W(away * 7f));
             gm.Shake(0.25f);
             gm.sfx.Thud();
         }
@@ -141,15 +156,16 @@ namespace ChainDrop
         void Die()
         {
             Dead = true;
-            foreach (var c in GetComponents<Collider2D>()) c.enabled = false;
-            rb.SetVel(Vector2.zero);
-            rb.bodyType = RigidbodyType2D.Static;
-            visual.localScale = new Vector3(1.35f, 0.28f, 1);
+            foreach (var c in GetComponents<Collider>()) c.enabled = false;
+            rb.SetVel(Vector3.zero);
+            rb.isKinematic = true;
+            visual.localScale = new Vector3(1.3f, 0.18f, 1.3f);
             visual.localPosition = Vector3.zero;
-            blink.enabled = false;
-            for (int i = 0; i < parts.Length; i++) parts[i].color = baseColors[i].Mul(0.45f);
-            gm.OilStain(rb.position);
-            gm.Debris(rb.position + Vector2.up * 0.5f, baseColors[2]);
+            beacon.gameObject.SetActive(false);
+            var dead = Util.Mat(bodyColor.Mul(0.35f), 0.3f, 0.4f);
+            foreach (var p in parts) p.sharedMaterial = dead;
+            gm.OilStain(Pos);
+            gm.Debris(rb.position + Vector3.up * 0.6f, bodyColor);
             gm.OnRobotKilled(this);
         }
     }

@@ -9,22 +9,22 @@ namespace ChainDrop
 
     /// <summary>
     /// Boots itself in any scene (no setup needed: open the project, press Play).
-    /// Top-down 3/4 view arena. Levels come from Resources/ChainDrop/levels.json.
+    /// Real 3D arena with lights and shadows. Levels come from Resources/ChainDrop/levels.json.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
         public static GameManager I;
         public static bool AutoBoot = true;
 
-        /// <summary>How far up the screen one unit of height is drawn (fake 3D, 3/4 view).</summary>
-        public const float Oblique = 0.55f;
-        public const float MinX = -5f, MaxX = 5f, MinY = -7f, MaxY = 6f;
+        public const float MinX = -5f, MaxX = 5f, MinZ = -7f, MaxZ = 6f;
+        const float Pitch = 58f;
 
         public GameState State { get; private set; } = GameState.Loading;
         public Player player;
         public Sfx sfx;
 
         Camera cam;
+        Light sun;
         LevelPack pack;
         int levelIndex;
         LevelDef L;
@@ -34,11 +34,10 @@ namespace ChainDrop
         readonly List<Crate> crates = new List<Crate>();
         int kills, shots, shotsUsed, stars;
         string loseReason = "";
-        float shakeAmt, levelStartTime, defaultFixedDt, camTopY;
+        float shakeAmt, levelStartTime, defaultFixedDt, lastAspect = -1f;
         Vector3 camBase;
         Rect restartRect;
 
-        // Floating joystick
         bool joyActive;
         Vector2 joyStart, joyNow;
         float JoyMax => Screen.height * 0.07f;
@@ -58,7 +57,7 @@ namespace ChainDrop
             Screen.orientation = ScreenOrientation.Portrait;
             defaultFixedDt = 0.02f;
             Time.fixedDeltaTime = defaultFixedDt;
-            Physics2D.gravity = Vector2.zero;
+            Physics.gravity = new Vector3(0, -20f, 0);
 
             cam = Camera.main;
             if (cam == null)
@@ -67,13 +66,29 @@ namespace ChainDrop
                 cam = cg.AddComponent<Camera>();
                 cg.AddComponent<AudioListener>();
             }
-            cam.orthographic = true;
+            cam.orthographic = false;
+            cam.fieldOfView = 40f;
+            cam.nearClipPlane = 0.3f;
+            cam.farClipPlane = 200f;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            sfx = gameObject.AddComponent<Sfx>();
 
+            sun = FindObjectsByType<Light>(FindObjectsSortMode.None).FirstOrDefault(l => l.type == LightType.Directional);
+            if (sun == null)
+            {
+                sun = new GameObject("Sun").AddComponent<Light>();
+                sun.type = LightType.Directional;
+            }
+            sun.transform.rotation = Quaternion.Euler(62f, -35f, 0f);
+            sun.intensity = 1.25f;
+            sun.shadows = LightShadows.Soft;
+            sun.shadowStrength = 0.85f;
+            sun.color = new Color(1f, 0.95f, 0.88f);
+
+            sfx = gameObject.AddComponent<Sfx>();
             var ta = Resources.Load<TextAsset>("ChainDrop/levels");
             pack = JsonUtility.FromJson<LevelPack>(ta.text);
-            levelIndex = Mathf.Clamp(PlayerPrefs.GetInt("cd_level", 0), 0, pack.levels.Length - 1);
+            // In the editor always start from level 1; on a phone continue where the player left off
+            levelIndex = Application.isEditor ? 0 : Mathf.Clamp(PlayerPrefs.GetInt("cd3_level", 0), 0, pack.levels.Length - 1);
         }
 
         void Start() => LoadLevel(levelIndex);
@@ -96,10 +111,11 @@ namespace ChainDrop
             shots = L.shots;
 
             levelRoot = new GameObject("Level_" + (levelIndex + 1)).transform;
+            lastAspect = -1f;
             FitCamera();
             BuildArena();
-            foreach (var c in L.crates) crates.Add(Crate.Build(this, c, levelRoot, theme, camTopY + 2f));
-            player = Player.Spawn(this, new Vector2(L.px, L.py), levelRoot, theme);
+            foreach (var c in L.crates) crates.Add(Crate.Build(this, c, levelRoot, theme));
+            player = Player.Spawn(this, new Vector2(L.px, L.pz), levelRoot, theme);
 
             levelStartTime = Time.time;
             State = GameState.Playing;
@@ -114,115 +130,161 @@ namespace ChainDrop
                 while (Time.time - t0 < d.delay) yield return null;
                 if (State != GameState.Playing) yield break;
                 robots.Add(Robot.Spawn(this, d, levelRoot, theme));
-                Burst(new Vector2(d.x, d.y + 0.4f), theme.accent, 6, 0.12f, 3f, 0.4f, false);
+                Sparks(new Vector3(d.x, 1f, d.z), theme.accent, 8);
             }
         }
 
+        /// <summary>Moves the camera back until the whole arena fits the screen (below the HUD).</summary>
         void FitCamera()
         {
-            if (cam == null) return;
-            const float contentW = 11.8f, contentBottom = -8.0f, contentTop = 9.2f;
-            const float hud = 0.12f;  // top part of the screen used by the HUD
-            float widthBased = (contentW / 2f) / Mathf.Max(0.1f, cam.aspect);
-            float heightBased = (contentTop - contentBottom) / (1f - hud) / 2f;
-            float halfH = Mathf.Max(widthBased, heightBased);
-            cam.orthographicSize = halfH;
-            float playMid = (contentTop + contentBottom) / 2f;
-            float camY = playMid + halfH * hud;   // shift down a little so the HUD does not cover the arena
-            camBase = new Vector3(0, camY, -10f);
-            camTopY = camY + halfH;
+            if (cam == null || Mathf.Approximately(lastAspect, cam.aspect)) return;
+            lastAspect = cam.aspect;
+            var rot = Quaternion.Euler(Pitch, 0, 0);
+            var target = new Vector3(0, 0, -0.8f);
+            var pts = new[]
+            {
+                new Vector3(MinX - 0.7f, 0, MinZ - 0.7f), new Vector3(MaxX + 0.7f, 0, MinZ - 0.7f),
+                new Vector3(MinX - 0.7f, 3.5f, MaxZ + 0.7f), new Vector3(MaxX + 0.7f, 3.5f, MaxZ + 0.7f),
+            };
+            Vector3 pos = target;
+            for (float d = 8f; d < 90f; d += 0.25f)
+            {
+                pos = target - rot * Vector3.forward * d;
+                cam.transform.SetPositionAndRotation(pos, rot);
+                bool ok = true;
+                foreach (var p in pts)
+                {
+                    var v = cam.WorldToViewportPoint(p);
+                    if (v.x < 0.02f || v.x > 0.98f || v.y < 0.04f || v.y > 0.84f) { ok = false; break; }
+                }
+                if (ok) break;
+            }
+            camBase = pos;
         }
 
         void BuildArena()
         {
             cam.backgroundColor = theme.bg;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = Color.Lerp(theme.bg, new Color(0.55f, 0.58f, 0.65f), 0.55f);
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = theme.bg;
+            RenderSettings.fogStartDistance = 22f;
+            RenderSettings.fogEndDistance = 55f;
+
             var env = new GameObject("Arena").transform;
             env.SetParent(levelRoot, false);
-            Color f1 = theme.ground, f2 = theme.ground.Mul(1.08f);
+            float w = MaxX - MinX, dpt = MaxZ - MinZ, cx = (MinX + MaxX) / 2f, cz = (MinZ + MaxZ) / 2f;
 
-            // Background wall texture behind the arena (far wall)
-            Util.Box("farWall", env, new Vector2(0, MaxY + 6f), new Vector2(30f, 12f), theme.bgFar, -300);
-            for (int i = -3; i <= 3; i++)
+            var wallMat = Util.Mat(theme.metalDark, 0.35f, 0.6f);
+            var wallTrim = Util.Mat(theme.metal, 0.5f, 0.7f);
+            var accentMat = Util.Mat(theme.accent, 0.4f, 0.1f);
+            var blackMat = Util.Mat(new Color(0.06f, 0.06f, 0.07f), 0.3f);
+
+            // Surroundings + steel plate floor
+            Util.Cube("outside", env, new Vector3(0, -0.3f, 0), new Vector3(60, 0.4f, 60), Util.Mat(theme.bg.Mul(0.8f), 0.1f));
+            var plate = Util.SteelPlate(theme.ground.Mul(1.15f), theme.ground);
+            var floor = Util.Cube("floor", env, new Vector3(cx, -0.1f, cz), new Vector3(w, 0.2f, dpt), Util.Textured(plate, new Vector2(w / 2f, dpt / 2f), Color.white));
+            var fc = floor.AddComponent<BoxCollider>();
+            fc.size = Vector3.one;
+
+            // Hazard stripes along the edges
+            for (float x = MinX + 0.2f; x < MaxX - 0.2f; x += 0.8f)
             {
-                Util.Box("pillar", env, new Vector2(i * 3.3f, MaxY + 6f), new Vector2(0.6f, 12f), theme.bg.Mul(0.85f), -299);
-                Util.Blob("lampGlow", env, new Vector2(i * 3.3f + 1.65f, MaxY + 2.6f), new Vector2(3f, 2f), theme.accent.A(0.12f), -298);
-                Util.Dot("lamp", env, new Vector2(i * 3.3f + 1.65f, MaxY + 2.6f), 0.22f, theme.accent, -297);
+                Util.Cube("hzN", env, new Vector3(x + 0.2f, 0.005f, MaxZ - 0.25f), new Vector3(0.4f, 0.01f, 0.3f), accentMat);
+                Util.Cube("hzS", env, new Vector3(x + 0.2f, 0.005f, MinZ + 0.25f), new Vector3(0.4f, 0.01f, 0.3f), accentMat);
             }
-            Util.Box("pipe1", env, new Vector2(0, MaxY + 1.7f), new Vector2(30f, 0.18f), theme.metalDark, -296);
-            Util.Box("pipe2", env, new Vector2(0, MaxY + 1.35f), new Vector2(30f, 0.1f), theme.metalDark.Mul(0.8f), -296);
+            for (float z = MinZ + 0.6f; z < MaxZ - 0.6f; z += 0.8f)
+            {
+                Util.Cube("hzW", env, new Vector3(MinX + 0.25f, 0.005f, z + 0.2f), new Vector3(0.3f, 0.01f, 0.4f), accentMat);
+                Util.Cube("hzE", env, new Vector3(MaxX - 0.25f, 0.005f, z + 0.2f), new Vector3(0.3f, 0.01f, 0.4f), accentMat);
+            }
 
-            // Checkered floor
-            for (int x = (int)MinX; x < (int)MaxX; x++)
-                for (int y = (int)MinY; y < (int)MaxY; y++)
-                    Util.Box("tile", env, new Vector2(x + 0.5f, y + 0.5f), new Vector2(1.01f, 1.01f), ((x + y) & 1) == 0 ? f1 : f2, -200);
+            // Walls: tall back wall with pipes and lamps, low side/front walls so the view stays open
+            Wall(env, new Vector3(cx, 2.2f, MaxZ + 0.35f), new Vector3(w + 1.4f, 4.4f, 0.7f), wallMat);
+            Wall(env, new Vector3(cx, 0.35f, MinZ - 0.35f), new Vector3(w + 1.4f, 0.7f, 0.7f), wallMat);
+            Wall(env, new Vector3(MinX - 0.35f, 0.6f, cz), new Vector3(0.7f, 1.2f, dpt), wallMat);
+            Wall(env, new Vector3(MaxX + 0.35f, 0.6f, cz), new Vector3(0.7f, 1.2f, dpt), wallMat);
+            Util.Cube("trimS", env, new Vector3(cx, 0.72f, MinZ - 0.35f), new Vector3(w + 1.4f, 0.06f, 0.74f), wallTrim);
+            Util.Cube("trimW", env, new Vector3(MinX - 0.35f, 1.22f, cz), new Vector3(0.74f, 0.06f, dpt), wallTrim);
+            Util.Cube("trimE", env, new Vector3(MaxX + 0.35f, 1.22f, cz), new Vector3(0.74f, 0.06f, dpt), wallTrim);
 
-            // Floor light pools and markings
+            var pipeMat = Util.Mat(theme.metal.Mul(0.8f), 0.6f, 0.9f);
+            foreach (var y in new[] { 2.4f, 2.9f })
+                Util.Prim(PrimitiveType.Cylinder, "pipe", env, new Vector3(cx, y, MaxZ - 0.05f), new Vector3(0.22f, (w + 1.4f) / 2f, 0.22f), pipeMat)
+                    .transform.localRotation = Quaternion.Euler(0, 0, 90);
             for (int i = 0; i < 4; i++)
-                Util.Blob("pool", env, new Vector2(i % 2 == 0 ? -2.5f : 2.5f, i < 2 ? 2.5f : -3.5f), new Vector2(5f, 4f), theme.accent.A(0.06f), -190);
-            for (float x = MinX + 0.2f; x < MaxX; x += 0.8f)
             {
-                Util.Box("hzT", env, new Vector2(x + 0.2f, MaxY - 0.18f), new Vector2(0.4f, 0.18f), theme.accent.A(0.85f), -180);
-                Util.Box("hzB", env, new Vector2(x + 0.2f, MinY + 0.18f), new Vector2(0.4f, 0.18f), theme.accent.A(0.85f), -180);
+                float x = MinX + 1.25f + i * (w - 2.5f) / 3f;
+                Util.Cube("panel", env, new Vector3(x, 1.2f, MaxZ - 0.02f), new Vector3(1.2f, 0.8f, 0.05f), wallTrim);
+                Util.Cube("panelStripe", env, new Vector3(x, 1.2f, MaxZ - 0.06f), new Vector3(1.0f, 0.12f, 0.03f), accentMat);
+                Util.Prim(PrimitiveType.Sphere, "lamp", env, new Vector3(x, 3.6f, MaxZ - 0.1f), Vector3.one * 0.3f, Util.Glow(theme.accent, 4f));
+                if (i == 0 || i == 3)
+                {
+                    var pl = new GameObject("lampLight").AddComponent<Light>();
+                    pl.transform.SetParent(env, false);
+                    pl.transform.position = new Vector3(x, 3.4f, MaxZ - 1f);
+                    pl.type = LightType.Point;
+                    pl.color = theme.accent;
+                    pl.range = 9f;
+                    pl.intensity = 2.5f;
+                }
             }
-            Util.Box("lineL", env, new Vector2(MinX + 0.15f, (MinY + MaxY) / 2f), new Vector2(0.08f, MaxY - MinY), theme.accent.A(0.5f), -180);
-            Util.Box("lineR", env, new Vector2(MaxX - 0.15f, (MinY + MaxY) / 2f), new Vector2(0.08f, MaxY - MinY), theme.accent.A(0.5f), -180);
+            // Pillars on the side walls
+            for (float z = MinZ + 1f; z <= MaxZ; z += 3.25f)
+            {
+                Util.Cube("pillarW", env, new Vector3(MinX - 0.4f, 1.0f, z), new Vector3(0.8f, 2f, 0.5f), wallTrim);
+                Util.Cube("pillarE", env, new Vector3(MaxX + 0.4f, 1.0f, z), new Vector3(0.8f, 2f, 0.5f), wallTrim);
+            }
+            // Props outside the arena for depth
+            var barrel = Util.Mat(Util.Hex("#8a3b2a"), 0.4f, 0.5f);
+            foreach (var p in new[] { new Vector3(MinX - 1.6f, 0.6f, MinZ + 1.5f), new Vector3(MaxX + 1.6f, 0.6f, MinZ + 3f), new Vector3(MaxX + 1.7f, 0.6f, MaxZ - 2f), new Vector3(MinX - 1.7f, 0.6f, MaxZ - 3.5f) })
+            {
+                Util.Prim(PrimitiveType.Cylinder, "barrel", env, p, new Vector3(0.8f, 0.6f, 0.8f), barrel);
+                Util.Prim(PrimitiveType.Cylinder, "barrelRing", env, p + Vector3.up * 0.25f, new Vector3(0.84f, 0.04f, 0.84f), blackMat);
+            }
+
+            // Floor grime
             var rnd = new System.Random(levelIndex * 31 + 7);
-            for (int i = 0; i < 5; i++)
+            var grime = Util.Mat(new Color(0.05f, 0.05f, 0.06f), 0.8f);
+            for (int i = 0; i < 4; i++)
             {
-                var p = new Vector2((float)(rnd.NextDouble() * 8 - 4), (float)(rnd.NextDouble() * 11 - 6));
-                Util.Blob("stain", env, p, new Vector2(1.2f, 0.7f), new Color(0, 0, 0, 0.18f), -170);
+                var p = new Vector3((float)(rnd.NextDouble() * 8 - 4), 0.004f, (float)(rnd.NextDouble() * 11 - 6));
+                Util.Prim(PrimitiveType.Cylinder, "grime", env, p, new Vector3(1.1f, 0.002f, 0.7f), grime);
             }
 
-            // Walls (3/4 view): far wall shows its front face, side walls show their top
-            Color wallTop = theme.metalDark, wallFront = theme.metalDark.Mul(0.65f);
-            Util.Box("wallTopFront", env, new Vector2(0, MaxY + 0.35f), new Vector2(MaxX - MinX + 1.4f, 0.7f), wallFront, -150);
-            Util.Box("wallTopLip", env, new Vector2(0, MaxY + 0.78f), new Vector2(MaxX - MinX + 1.4f, 0.16f), wallTop, -149);
-            Util.Box("wallL", env, new Vector2(MinX - 0.35f, (MinY + MaxY) / 2f + 0.2f), new Vector2(0.7f, MaxY - MinY + 1.4f), wallTop, -148);
-            Util.Box("wallR", env, new Vector2(MaxX + 0.35f, (MinY + MaxY) / 2f + 0.2f), new Vector2(0.7f, MaxY - MinY + 1.4f), wallTop, -148);
-            Util.Box("wallBottom", env, new Vector2(0, MinY - 0.35f), new Vector2(MaxX - MinX + 1.4f, 0.7f), wallTop, 9000);
-            Util.Box("wallBottomEdge", env, new Vector2(0, MinY - 0.02f), new Vector2(MaxX - MinX + 1.4f, 0.06f), wallTop.Mul(1.3f), 9001);
-
-            // Doors where robots come from
-            foreach (var d in L.robots.Select(r => new Vector2(r.x, r.y)).Distinct())
-                BuildDoor(env, d);
-
-            // Colliders
-            AddWall(env, new Vector2(0, MaxY + 0.5f), new Vector2(20f, 1f));
-            AddWall(env, new Vector2(0, MinY - 0.5f), new Vector2(20f, 1f));
-            AddWall(env, new Vector2(MinX - 0.5f, 0), new Vector2(1f, 20f));
-            AddWall(env, new Vector2(MaxX + 0.5f, 0), new Vector2(1f, 20f));
+            foreach (var d in L.robots.Select(r => new Vector2(r.x, r.z)).Distinct())
+                BuildDoor(env, d, blackMat);
         }
 
-        void BuildDoor(Transform env, Vector2 spawn)
+        void Wall(Transform env, Vector3 pos, Vector3 size, Material m)
         {
-            float dTop = Mathf.Abs(spawn.y - MaxY), dBot = Mathf.Abs(spawn.y - MinY);
-            float dL = Mathf.Abs(spawn.x - MinX), dR = Mathf.Abs(spawn.x - MaxX);
-            float m = Mathf.Min(dTop, dBot, dL, dR);
-            Color dark = new Color(0.04f, 0.04f, 0.06f);
-            if (m == dTop)
+            var g = Util.Cube("wall", env, pos, size, m);
+            g.AddComponent<BoxCollider>().size = Vector3.one;
+        }
+
+        void BuildDoor(Transform env, Vector2 spawn, Material dark)
+        {
+            float dN = Mathf.Abs(spawn.y - MaxZ), dS = Mathf.Abs(spawn.y - MinZ), dW = Mathf.Abs(spawn.x - MinX), dE = Mathf.Abs(spawn.x - MaxX);
+            float m = Mathf.Min(dN, dS, dW, dE);
+            var glow = Util.Glow(theme.accent, 3f);
+            if (m == dN)
             {
-                Util.Box("door", env, new Vector2(spawn.x, MaxY + 0.3f), new Vector2(1.3f, 0.62f), dark, -147);
-                Util.Box("doorLight", env, new Vector2(spawn.x, MaxY + 0.7f), new Vector2(1.3f, 0.08f), theme.accent, -146);
+                Util.Cube("door", env, new Vector3(spawn.x, 0.9f, MaxZ + 0.02f), new Vector3(1.5f, 1.8f, 0.1f), dark);
+                Util.Cube("doorLight", env, new Vector3(spawn.x, 1.9f, MaxZ - 0.02f), new Vector3(1.5f, 0.1f, 0.06f), glow);
             }
-            else if (m == dBot)
+            else if (m == dS)
             {
-                Util.Box("door", env, new Vector2(spawn.x, MinY - 0.35f), new Vector2(1.3f, 0.7f), dark, 9002);
-                Util.Box("doorLight", env, new Vector2(spawn.x, MinY - 0.02f), new Vector2(1.3f, 0.08f), theme.accent, 9003);
+                Util.Cube("door", env, new Vector3(spawn.x, 0.36f, MinZ - 0.02f), new Vector3(1.5f, 0.74f, 0.76f), dark);
+                Util.Cube("doorLight", env, new Vector3(spawn.x, 0.74f, MinZ), new Vector3(1.5f, 0.06f, 0.06f), glow);
             }
             else
             {
-                float x = m == dL ? MinX - 0.35f : MaxX + 0.35f;
-                Util.Box("door", env, new Vector2(x, spawn.y), new Vector2(0.7f, 1.3f), dark, -147);
-                Util.Box("doorLight", env, new Vector2(m == dL ? MinX - 0.02f : MaxX + 0.02f, spawn.y), new Vector2(0.08f, 1.3f), theme.accent, -146);
+                float x = m == dW ? MinX - 0.02f : MaxX + 0.02f;
+                Util.Cube("door", env, new Vector3(x, 0.6f, spawn.y), new Vector3(0.76f, 1.24f, 1.5f), dark);
+                Util.Cube("doorLight", env, new Vector3(x, 1.25f, spawn.y), new Vector3(0.78f, 0.06f, 1.5f), glow);
             }
-        }
-
-        static void AddWall(Transform parent, Vector2 pos, Vector2 size)
-        {
-            var go = new GameObject("WallCollider");
-            go.transform.SetParent(parent, false);
-            go.transform.position = pos;
-            go.AddComponent<BoxCollider2D>().size = size;
         }
 
         // ───────────────────────── Input & shooting ─────────────────────────
@@ -237,8 +299,7 @@ namespace ChainDrop
                 var guiPt = new Vector2(sp.x, Screen.height - sp.y);
                 if (!restartRect.Contains(guiPt))
                 {
-                    Vector2 wp = cam.ScreenToWorldPoint(sp);
-                    var crate = CrateAt(wp);
+                    var crate = CrateAt(sp);
                     if (crate != null) Shoot(crate);
                     else { joyActive = true; joyStart = joyNow = sp; }
                 }
@@ -252,34 +313,48 @@ namespace ChainDrop
                     joyNow = hp;
                     Vector2 d = joyNow - joyStart;
                     if (d.magnitude > JoyMax) joyStart += d.normalized * (d.magnitude - JoyMax);   // floating stick follows the finger
-                    d = joyNow - joyStart;
-                    Vector2 stick = d / JoyMax;
+                    Vector2 stick = (joyNow - joyStart) / JoyMax;
                     if (stick.magnitude > 0.12f) input = stick;
                 }
             }
             else joyActive = false;
             player.Move(input);
 
-            // Robots that reach the player catch it
             foreach (var r in robots)
-                if (!r.Dead && Vector2.Distance(r.Pos, player.Pos) < r.Radius + Player.Radius + 0.06f)
+                if (!r.Dead && Vector2.Distance(r.Pos, player.Pos) < r.Radius + Player.Radius + 0.1f)
                 {
                     Lose("Robot seni yakaladı!");
                     break;
                 }
         }
 
-        Crate CrateAt(Vector2 wp)
+        /// <summary>Finds the hanging crate (or chain) under a screen point.</summary>
+        Crate CrateAt(Vector2 sp)
         {
             Crate best = null;
             float bestD = float.MaxValue;
+            float chainTol = Screen.height * 0.03f;
             foreach (var c in crates)
             {
-                if (!c.HitTest(wp)) continue;
-                float d = Vector2.Distance(wp, c.Visual);
-                if (d < bestD) { bestD = d; best = c; }
+                if (c.Released) continue;
+                Vector3 cs = cam.WorldToScreenPoint(c.Center);
+                if (cs.z < 0) continue;
+                float rad = ((Vector2)cam.WorldToScreenPoint(c.Center + cam.transform.right * c.Size * 0.5f) - (Vector2)cs).magnitude;
+                float d = Vector2.Distance(sp, cs);
+                Vector2 a = cam.WorldToScreenPoint(c.ChainPoint), b = cam.WorldToScreenPoint(c.ChainPoint + Vector3.up * 4f);
+                float dc = DistToSegment(sp, a, b);
+                bool hit = d < rad * 1.4f + Screen.height * 0.01f || dc < chainTol;
+                float score = Mathf.Min(d, dc);
+                if (hit && score < bestD) { bestD = score; best = c; }
             }
             return best;
+        }
+
+        static float DistToSegment(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(0.0001f, ab.sqrMagnitude));
+            return Vector2.Distance(p, a + ab * t);
         }
 
         void Shoot(Crate crate)
@@ -287,14 +362,14 @@ namespace ChainDrop
             if (shots <= 0) { sfx.Empty(); return; }
             shots--;
             shotsUsed++;
-            player.AimAt(crate.ChainBottom);
-            Vector2 target = crate.ChainBottom + new Vector2(0, 0.25f);
+            Vector3 target = crate.ChainPoint;
+            player.AimAt(target);
             StartCoroutine(Tracer(player.GunTip, target));
             crate.Release();
             sfx.Shot();
             sfx.Clank();
-            Burst(target, new Color(1f, 0.85f, 0.3f), 8, 0.09f, 5f, 0.35f, false);
-            Shake(0.07f);
+            Sparks(target, new Color(1f, 0.85f, 0.3f), 10);
+            Shake(0.08f);
         }
 
         // ───────────────────────── Game flow ─────────────────────────
@@ -307,12 +382,12 @@ namespace ChainDrop
             {
                 if (r.Dead) continue;
                 var d = r.Pos - c.Ground;
-                if (Mathf.Abs(d.x) < half + r.Radius && Mathf.Abs(d.y) < half * 0.9f + r.Radius) r.Hit(c);
+                if (Mathf.Abs(d.x) < half + r.Radius && Mathf.Abs(d.y) < half + r.Radius) r.Hit(c);
             }
             if (State == GameState.Playing)
             {
                 var pd = player.Pos - c.Ground;
-                if (Mathf.Abs(pd.x) < half + Player.Radius * 0.5f && Mathf.Abs(pd.y) < half * 0.85f + Player.Radius * 0.5f)
+                if (Mathf.Abs(pd.x) < half + Player.Radius * 0.5f && Mathf.Abs(pd.y) < half + Player.Radius * 0.5f)
                 {
                     player.Squash();
                     Lose("Kasa senin üstüne düştü!");
@@ -324,7 +399,7 @@ namespace ChainDrop
         {
             Shake(Mathf.Clamp(0.12f + c.Size * 0.06f, 0.15f, 0.35f));
             sfx.Thud();
-            StartCoroutine(DustRing(c.Ground, c.Size));
+            Dust(Util.W(c.Ground, 0.1f), c.Size);
         }
 
         public void OnRobotKilled(Robot r)
@@ -344,9 +419,9 @@ namespace ChainDrop
             State = GameState.Won;
             stars = shotsUsed <= L.par ? 3 : shotsUsed <= L.par + 1 ? 2 : 1;
             sfx.Win();
-            int best = PlayerPrefs.GetInt("cd_stars_" + levelIndex, 0);
-            if (stars > best) PlayerPrefs.SetInt("cd_stars_" + levelIndex, stars);
-            PlayerPrefs.SetInt("cd_level", Mathf.Min(levelIndex + 1, pack.levels.Length - 1));
+            int best = PlayerPrefs.GetInt("cd3_stars_" + levelIndex, 0);
+            if (stars > best) PlayerPrefs.SetInt("cd3_stars_" + levelIndex, stars);
+            PlayerPrefs.SetInt("cd3_level", Mathf.Min(levelIndex + 1, pack.levels.Length - 1));
             PlayerPrefs.Save();
         }
 
@@ -377,60 +452,77 @@ namespace ChainDrop
         void LateUpdate()
         {
             if (cam == null) return;
-            cam.transform.position = camBase + (Vector3)(Random.insideUnitCircle * shakeAmt);
+            cam.transform.position = camBase + Random.insideUnitSphere * shakeAmt;
             shakeAmt = Mathf.MoveTowards(shakeAmt, 0f, Time.unscaledDeltaTime * 1.6f);
         }
 
-        IEnumerator Tracer(Vector2 a, Vector2 b)
+        IEnumerator Tracer(Vector3 a, Vector3 b)
         {
-            var dir = b - a;
-            var sr = Util.Box("tracer", levelRoot, (a + b) / 2f, new Vector2(dir.magnitude, 0.07f), new Color(1f, 0.92f, 0.5f), 7000);
-            sr.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
-            var flash = Util.Blob("flash", levelRoot, a, new Vector2(0.9f, 0.9f), new Color(1f, 0.85f, 0.3f), 7001);
-            for (float t = 0; t < 0.12f; t += Time.unscaledDeltaTime)
-            {
-                if (sr == null) yield break;
-                float k = 1f - t / 0.12f;
-                sr.color = new Color(1f, 0.92f, 0.5f, k);
-                flash.color = new Color(1f, 0.85f, 0.3f, k);
-                yield return null;
-            }
-            if (sr != null) Destroy(sr.gameObject);
-            if (flash != null) Destroy(flash.gameObject);
+            var glow = Util.Glow(new Color(1f, 0.85f, 0.4f), 6f);
+            var line = Util.Cube("tracer", levelRoot, (a + b) / 2f, new Vector3(0.05f, 0.05f, Vector3.Distance(a, b)), glow);
+            line.transform.rotation = Quaternion.LookRotation(b - a);
+            var flash = Util.Prim(PrimitiveType.Sphere, "flash", levelRoot, a, Vector3.one * 0.35f, glow);
+            var fl = flash.AddComponent<Light>();
+            fl.type = LightType.Point;
+            fl.color = new Color(1f, 0.8f, 0.4f);
+            fl.range = 4f;
+            fl.intensity = 5f;
+            yield return new WaitForSecondsRealtime(0.07f);
+            if (line != null) Destroy(line);
+            if (flash != null) Destroy(flash);
         }
 
-        IEnumerator DustRing(Vector2 at, float size)
+        void Sparks(Vector3 at, Color c, int count)
         {
-            var ring = Util.Blob("dust", levelRoot, at, Vector2.one * size, new Color(0.85f, 0.85f, 0.85f, 0.5f), 4000);
-            for (float t = 0; t < 0.45f; t += Time.deltaTime)
-            {
-                if (ring == null) yield break;
-                float k = t / 0.45f;
-                ring.transform.localScale = new Vector3(size * (1.2f + k * 1.6f), size * (0.9f + k * 1.1f), 1);
-                ring.color = new Color(0.85f, 0.85f, 0.85f, 0.5f * (1 - k));
-                yield return null;
-            }
-            if (ring != null) Destroy(ring.gameObject);
-        }
-
-        void Burst(Vector2 pos, Color c, int count, float size, float speed, float life, bool dots)
-        {
+            var m = Util.Glow(c, 3f);
             for (int i = 0; i < count; i++)
             {
-                var sr = dots ? Util.Dot("p", levelRoot, pos, size, c, 6500) : Util.Box("p", levelRoot, pos, new Vector2(size, size), c, 6500);
-                var rb = sr.gameObject.AddComponent<Rigidbody2D>();
-                rb.gravityScale = 0f;
-                rb.linearDampingCompat(3f);
-                rb.SetVel(Random.insideUnitCircle.normalized * Random.Range(speed * 0.4f, speed));
-                rb.angularVelocity = Random.Range(-720f, 720f);
-                Destroy(sr.gameObject, life);
+                var g = Util.Cube("spark", levelRoot, at, Vector3.one * 0.07f, m);
+                var rb = g.AddComponent<Rigidbody>();
+                rb.SetVel(Random.onUnitSphere * Random.Range(2f, 6f));
+                Destroy(g, 0.4f);
             }
         }
 
-        public void Debris(Vector2 pos, Color c) => Burst(pos, c, 14, 0.18f, 7f, 0.9f, false);
+        void Dust(Vector3 at, float size)
+        {
+            var m = Util.Mat(new Color(0.6f, 0.6f, 0.6f), 0.1f);
+            for (int i = 0; i < 14; i++)
+            {
+                float a = i / 14f * Mathf.PI * 2f;
+                var dir = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a));
+                var g = Util.Cube("dust", levelRoot, at + dir * size * 0.55f, Vector3.one * 0.18f, m);
+                var rb = g.AddComponent<Rigidbody>();
+                rb.useGravity = false;
+#if UNITY_6000_0_OR_NEWER
+                rb.linearDamping = 4f;
+#else
+                rb.drag = 4f;
+#endif
+                rb.SetVel(dir * Random.Range(3f, 5f) + Vector3.up * 0.5f);
+                Destroy(g, 0.45f);
+            }
+        }
 
-        public void OilStain(Vector2 pos) =>
-            Util.Blob("oil", levelRoot, pos, new Vector2(1.6f, 0.9f), new Color(0.03f, 0.03f, 0.05f, 0.55f), -160);
+        public void Debris(Vector3 at, Color c)
+        {
+            var m = Util.Mat(c, 0.4f, 0.5f);
+            var dark = Util.Mat(c.Mul(0.4f), 0.4f, 0.5f);
+            for (int i = 0; i < 12; i++)
+            {
+                var g = Util.Cube("debris", levelRoot, at + Random.insideUnitSphere * 0.3f, Vector3.one * Random.Range(0.1f, 0.22f), i % 2 == 0 ? m : dark);
+                g.AddComponent<BoxCollider>();
+                var rb = g.AddComponent<Rigidbody>();
+                rb.mass = 0.05f;
+                rb.SetVel(new Vector3(Random.Range(-4f, 4f), Random.Range(4f, 8f), Random.Range(-4f, 4f)));
+                rb.angularVelocity = Random.insideUnitSphere * 15f;
+                Destroy(g, 1.6f);
+            }
+            Sparks(at, new Color(1f, 0.7f, 0.2f), 10);
+        }
+
+        public void OilStain(Vector2 at) =>
+            Util.Prim(PrimitiveType.Cylinder, "oil", levelRoot, Util.W(at, 0.012f), new Vector3(1.5f, 0.002f, 1.2f), Util.Mat(new Color(0.02f, 0.02f, 0.03f), 0.95f));
 
         // ───────────────────────── UI (IMGUI, prototype only) ─────────────────────────
 
@@ -461,11 +553,10 @@ namespace ChainDrop
             EnsureStyles(u);
             float W = Screen.width, H = Screen.height;
 
-            // Top bar
-            GUI.color = new Color(0, 0, 0, 0.4f);
+            GUI.color = new Color(0, 0, 0, 0.45f);
             GUI.DrawTexture(new Rect(0, 0, W, 12f * u), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(3f * u, 1.5f * u, 45f * u, 9f * u), $"{theme.name}  {levelIndex / 10 + 1}-{levelIndex % 10 + 1}", sSmall);
+            GUI.Label(new Rect(3f * u, 1.5f * u, 50f * u, 9f * u), $"BÖLÜM {levelIndex + 1}", sSmall);
 
             float bw = 2.2f * u, bh = 5.5f * u;
             float ax = W - 24f * u - L.shots * (bw + 1.2f * u);
@@ -489,16 +580,15 @@ namespace ChainDrop
                 GUI.color = Color.white;
             }
 
-            // Floating joystick
             if (joyActive && State == GameState.Playing)
             {
                 float R = JoyMax;
                 var c = new Vector2(joyStart.x, H - joyStart.y);
                 var k = new Vector2(joyNow.x, H - joyNow.y);
                 GUI.color = new Color(1, 1, 1, 0.15f);
-                GUI.DrawTexture(new Rect(c.x - R, c.y - R, 2 * R, 2 * R), Util.Circle.texture);
+                GUI.DrawTexture(new Rect(c.x - R, c.y - R, 2 * R, 2 * R), Util.CircleTex);
                 GUI.color = new Color(1, 1, 1, 0.45f);
-                GUI.DrawTexture(new Rect(k.x - R * 0.42f, k.y - R * 0.42f, R * 0.84f, R * 0.84f), Util.Circle.texture);
+                GUI.DrawTexture(new Rect(k.x - R * 0.42f, k.y - R * 0.42f, R * 0.84f, R * 0.84f), Util.CircleTex);
                 GUI.color = Color.white;
             }
 
@@ -531,7 +621,7 @@ namespace ChainDrop
             for (int i = 0; i < 3; i++)
             {
                 GUI.color = i < stars ? theme.accent : new Color(1, 1, 1, 0.15f);
-                GUI.DrawTexture(new Rect(sx + i * (s + gap), box.y + 18f * u, s, s), Util.Circle.texture);
+                GUI.DrawTexture(new Rect(sx + i * (s + gap), box.y + 18f * u, s, s), Util.CircleTex);
             }
             GUI.color = Color.white;
             GUI.Label(new Rect(box.x, box.y + 34f * u, box.width, 8f * u), $"Kullanılan mermi: {shotsUsed}  (hedef {L.par})", sText);
@@ -546,18 +636,6 @@ namespace ChainDrop
             GUI.Label(new Rect(box.x + 4f * u, box.y + 20f * u, box.width - 8f * u, 16f * u), loseReason, sText);
             if (GUI.Button(new Rect(box.x + 8f * u, box.y + 46f * u, box.width - 16f * u, 14f * u), "TEKRAR", sButton))
                 LoadLevel(levelIndex);
-        }
-    }
-
-    static class RbCompat
-    {
-        public static void linearDampingCompat(this Rigidbody2D rb, float v)
-        {
-#if UNITY_6000_0_OR_NEWER
-            rb.linearDamping = v;
-#else
-            rb.drag = v;
-#endif
         }
     }
 }

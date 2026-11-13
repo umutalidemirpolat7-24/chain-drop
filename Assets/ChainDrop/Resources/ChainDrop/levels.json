@@ -5,14 +5,14 @@
       "theme": 0,
       "shots": 4,
       "par": 1,
-      "px": 0.0,
-      "py": -5.0,
-      "hint": "Robot sana koşar. Onu kasanın GÖLGESİNE çek, sonra KASAYA dokun!",
+      "px": 0,
+      "pz": -5,
+      "hint": "Robot sana yürür. Kırmızı işaretin üstüne gelince KASAYA dokun!",
       "crates": [
         {
-          "x": 0.0,
-          "y": 0.0,
-          "h": 4.0,
+          "x": 0,
+          "z": 0,
+          "h": 4,
           "size": 2.4,
           "swing": 0,
           "axis": "x"
@@ -20,8 +20,8 @@
       ],
       "robots": [
         {
-          "x": 0.0,
-          "y": 5.4,
+          "x": 0,
+          "z": 5.4,
           "delay": 1.5,
           "type": "walker"
         }
@@ -33,22 +33,22 @@
       "shots": 4,
       "par": 1,
       "px": 3.5,
-      "py": -5.0,
-      "hint": "Ekranda parmağını sürükle: koşarsın. Robotu gölgeye sen getir!",
+      "pz": -5,
+      "hint": "Ekranda parmağını sürükle, koşarsın. Robotu işarete sen getir!",
       "crates": [
         {
           "x": -2.5,
-          "y": -1.0,
-          "h": 4.0,
-          "size": 2.2,
+          "z": -1,
+          "h": 4,
+          "size": 2.4,
           "swing": 0,
           "axis": "x"
         }
       ],
       "robots": [
         {
-          "x": 3.0,
-          "y": 5.4,
+          "x": 3,
+          "z": 5.4,
           "delay": 1.5,
           "type": "walker"
         }
@@ -59,14 +59,14 @@
       "theme": 0,
       "shots": 3,
       "par": 1,
-      "px": 0.0,
-      "py": -5.5,
-      "hint": "Yüksek kasa geç düşer, gölgesi küçük ve soluk olur. Erken ateş et!",
+      "px": 0,
+      "pz": -5.5,
+      "hint": "Yüksek kasa geç düşer. Robot işarete varmadan ateş et!",
       "crates": [
         {
-          "x": 0.0,
-          "y": 1.0,
-          "h": 7.0,
+          "x": 0,
+          "z": 1,
+          "h": 7,
           "size": 2.2,
           "swing": 0,
           "axis": "x"
@@ -74,9 +74,50 @@
       ],
       "robots": [
         {
-          "x": 0.0,
-          "y": 5.4,
+          "x": 0,
+          "z": 5.4,
           "delay": 1.5,
+          "type": "walker"
+        }
+      ]
+    },
+    {
+      "name": "Sıra Sıra",
+      "theme": 0,
+      "shots": 4,
+      "par": 2,
+      "px": 0,
+      "pz": -5,
+      "hint": "İki robot, sırayla geliyorlar.",
+      "crates": [
+        {
+          "x": -2,
+          "z": 0,
+          "h": 4,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": 2,
+          "z": -2,
+          "h": 4,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1.0,
+          "type": "walker"
+        },
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 6.0,
           "type": "walker"
         }
       ]
@@ -84,75 +125,83 @@
     {
       "name": "İki Kapı",
       "theme": 0,
-      "shots": 5,
+      "shots": 4,
       "par": 2,
-      "px": 0.0,
-      "py": -4.0,
-      "hint": "İki robot! Birini sol kasaya, diğerini sağ kasaya çek.",
+      "px": 0,
+      "pz": -5,
+      "hint": "Bu sefer iki ayrı kapı var.",
       "crates": [
         {
           "x": -2.5,
-          "y": 0.0,
-          "h": 5.0,
-          "size": 2.0,
+          "z": 1,
+          "h": 4.5,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         },
         {
-          "x": 2.5,
-          "y": 0.0,
-          "h": 5.0,
-          "size": 2.0,
+          "x": 1.5,
+          "z": -3,
+          "h": 4.5,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         }
       ],
       "robots": [
         {
-          "x": -3.0,
-          "y": 5.4,
-          "delay": 0.5,
+          "x": -3,
+          "z": 5.4,
+          "delay": 1.0,
           "type": "walker"
         },
         {
-          "x": 4.4,
-          "y": 1.0,
-          "delay": 3.0,
+          "x": -4.4,
+          "z": -2,
+          "delay": 5.0,
           "type": "walker"
         }
       ]
     },
     {
-      "name": "Koşucu",
+      "name": "Sarı Robot",
       "theme": 0,
       "shots": 4,
       "par": 1,
-      "px": -3.0,
-      "py": -5.0,
-      "hint": "KOŞUCU! Çok hızlı. Önüne nişan al.",
+      "px": -3,
+      "pz": -5,
+      "hint": "SARI ROBOT hızlıdır! Erken ateş et.",
       "crates": [
         {
-          "x": 0.0,
-          "y": 1.0,
-          "h": 4.0,
-          "size": 2.0,
+          "x": 0,
+          "z": 1,
+          "h": 4,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         },
         {
           "x": 2.5,
-          "y": -2.5,
-          "h": 5.0,
-          "size": 2.0,
+          "z": -2,
+          "h": 4,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": -2.5,
+          "z": -2,
+          "h": 4,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         }
       ],
       "robots": [
         {
-          "x": 4.4,
-          "y": 4.0,
-          "delay": 1.0,
+          "x": 3,
+          "z": 5.4,
+          "delay": 1.5,
           "type": "runner"
         }
       ]
@@ -162,23 +211,23 @@
       "theme": 0,
       "shots": 3,
       "par": 2,
-      "px": 0.0,
-      "py": -5.5,
-      "hint": "Büyük kasa birden fazla robotu ezer. Önce topla, sonra vur!",
+      "px": 0,
+      "pz": -5.5,
+      "hint": "Büyük kasa: robotları topla, hepsini birden ez!",
       "crates": [
         {
-          "x": 0.0,
-          "y": 0.5,
-          "h": 5.0,
-          "size": 2.8,
+          "x": 0,
+          "z": 0.5,
+          "h": 4.5,
+          "size": 3.0,
           "swing": 0,
           "axis": "x"
         },
         {
-          "x": -3.0,
-          "y": -2.5,
-          "h": 5.0,
-          "size": 1.6,
+          "x": -3,
+          "z": -3,
+          "h": 4,
+          "size": 2.0,
           "swing": 0,
           "axis": "x"
         }
@@ -186,20 +235,20 @@
       "robots": [
         {
           "x": -0.6,
-          "y": 5.4,
-          "delay": 0.5,
+          "z": 5.4,
+          "delay": 1.0,
           "type": "walker"
         },
         {
           "x": 0.6,
-          "y": 5.4,
-          "delay": 0.9,
+          "z": 5.4,
+          "delay": 1.6,
           "type": "walker"
         },
         {
-          "x": 0.0,
-          "y": 5.4,
-          "delay": 1.4,
+          "x": 0,
+          "z": 5.4,
+          "delay": 2.2,
           "type": "walker"
         }
       ]
@@ -209,114 +258,37 @@
       "theme": 0,
       "shots": 4,
       "par": 2,
-      "px": 0.0,
-      "py": -5.5,
+      "px": 0,
+      "pz": -5.5,
       "hint": "Sallanan kasa! Zinciri kopardığın an kasa savrulur.",
       "crates": [
         {
-          "x": -2.0,
-          "y": 0.5,
-          "h": 5.0,
-          "size": 1.8,
+          "x": -1.5,
+          "z": 0.5,
+          "h": 4.5,
+          "size": 2.2,
           "swing": 2.0,
           "axis": "x"
         },
         {
           "x": 2.5,
-          "y": -2.0,
-          "h": 5.0,
-          "size": 1.8,
+          "z": -2.5,
+          "h": 4.5,
+          "size": 2.2,
           "swing": 1.5,
-          "axis": "y"
+          "axis": "z"
         }
       ],
       "robots": [
         {
-          "x": -1.0,
-          "y": 5.4,
-          "delay": 0.5,
-          "type": "walker"
-        },
-        {
-          "x": -4.4,
-          "y": -3.0,
-          "delay": 4.0,
-          "type": "walker"
-        }
-      ]
-    },
-    {
-      "name": "Dört Kapı",
-      "theme": 0,
-      "shots": 6,
-      "par": 4,
-      "px": 0.0,
-      "py": -1.0,
-      "hint": "Dört kapı, dört robot. Sakin kal, sırayla hallet.",
-      "crates": [
-        {
-          "x": -3.0,
-          "y": 3.0,
-          "h": 5.0,
-          "size": 1.8,
-          "swing": 0,
-          "axis": "x"
-        },
-        {
-          "x": 3.0,
-          "y": 3.0,
-          "h": 5.0,
-          "size": 1.8,
-          "swing": 0,
-          "axis": "x"
-        },
-        {
-          "x": -3.0,
-          "y": -4.0,
-          "h": 5.0,
-          "size": 1.8,
-          "swing": 0,
-          "axis": "x"
-        },
-        {
-          "x": 3.0,
-          "y": -4.0,
-          "h": 5.0,
-          "size": 1.8,
-          "swing": 0,
-          "axis": "x"
-        },
-        {
-          "x": 0.0,
-          "y": 2.0,
-          "h": 6.0,
-          "size": 1.8,
-          "swing": 0,
-          "axis": "x"
-        }
-      ],
-      "robots": [
-        {
-          "x": 0.0,
-          "y": 5.4,
-          "delay": 0.5,
-          "type": "walker"
-        },
-        {
-          "x": -4.4,
-          "y": 0.0,
-          "delay": 1.5,
+          "x": -1,
+          "z": 5.4,
+          "delay": 1.0,
           "type": "walker"
         },
         {
           "x": 4.4,
-          "y": -2.0,
-          "delay": 3.0,
-          "type": "runner"
-        },
-        {
-          "x": 0.0,
-          "y": -6.4,
+          "z": 2,
           "delay": 5.0,
           "type": "walker"
         }
@@ -327,14 +299,14 @@
       "theme": 0,
       "shots": 1,
       "par": 1,
-      "px": 0.0,
-      "py": -5.5,
-      "hint": "TEK MERMİ! Onları peşinden koşturup topla, sonra hepsini birden ez.",
+      "px": 0,
+      "pz": -5.5,
+      "hint": "TEK MERMİ! İki robotu peşinden koşturup yan yana getir.",
       "crates": [
         {
-          "x": 0.0,
-          "y": 1.0,
-          "h": 6.0,
+          "x": 0,
+          "z": 1,
+          "h": 5,
           "size": 3.2,
           "swing": 0,
           "axis": "x"
@@ -342,21 +314,15 @@
       ],
       "robots": [
         {
-          "x": -3.0,
-          "y": 5.4,
-          "delay": 0.0,
+          "x": -3,
+          "z": 5.4,
+          "delay": 1.0,
           "type": "walker"
         },
         {
-          "x": 3.0,
-          "y": 5.4,
-          "delay": 0.0,
-          "type": "walker"
-        },
-        {
-          "x": 0.0,
-          "y": 5.4,
-          "delay": 0.6,
+          "x": 3,
+          "z": 5.4,
+          "delay": 1.0,
           "type": "walker"
         }
       ]
@@ -365,69 +331,63 @@
       "name": "Tank",
       "theme": 0,
       "shots": 6,
-      "par": 4,
-      "px": 0.0,
-      "py": -5.0,
+      "par": 3,
+      "px": 0,
+      "pz": -5.5,
       "hint": "TANK! İki kasa yemeden durmaz.",
       "crates": [
         {
           "x": -2.5,
-          "y": 1.5,
-          "h": 5.0,
-          "size": 1.8,
+          "z": 1.5,
+          "h": 4.5,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         },
         {
           "x": 2.5,
-          "y": 1.5,
-          "h": 5.0,
-          "size": 1.8,
+          "z": 1.5,
+          "h": 4.5,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         },
         {
-          "x": 0.0,
-          "y": -1.0,
-          "h": 6.0,
-          "size": 2.0,
+          "x": 0,
+          "z": -1.5,
+          "h": 5,
+          "size": 2.4,
           "swing": 0,
           "axis": "x"
         },
         {
           "x": -2.5,
-          "y": -3.5,
-          "h": 4.0,
-          "size": 1.8,
+          "z": -4,
+          "h": 4,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         },
         {
           "x": 2.5,
-          "y": -3.5,
-          "h": 4.0,
-          "size": 1.8,
+          "z": -4,
+          "h": 4,
+          "size": 2.2,
           "swing": 0,
           "axis": "x"
         }
       ],
       "robots": [
         {
-          "x": 0.0,
-          "y": 5.4,
-          "delay": 0.5,
+          "x": 0,
+          "z": 5.4,
+          "delay": 1.0,
           "type": "tank"
         },
         {
           "x": -4.4,
-          "y": 3.0,
-          "delay": 2.5,
-          "type": "walker"
-        },
-        {
-          "x": 4.4,
-          "y": 3.0,
-          "delay": 4.0,
+          "z": 2,
+          "delay": 6.0,
           "type": "walker"
         }
       ]
