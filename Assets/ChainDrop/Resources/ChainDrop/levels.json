@@ -1,0 +1,112 @@
+{
+  "levels": [
+    {
+      "name": "İlk Zincir", "theme": 0, "shots": 3, "par": 1, "playerX": 3.5,
+      "hint": "Robot sana doğru yürür. Onu kasanın altına çek, sonra ZİNCİRE dokun!",
+      "crates": [ { "x": -0.5, "chain": 5.0, "size": 1.4, "swing": 0 } ],
+      "robots": [ { "side": "L", "delay": 0.5, "type": "walker" } ]
+    },
+    {
+      "name": "Yüksek Kasa", "theme": 0, "shots": 2, "par": 1, "playerX": -3.5,
+      "hint": "Kasa ne kadar yüksekse o kadar geç düşer. Erken ateş et!",
+      "crates": [ { "x": 1.5, "chain": 3.0, "size": 1.4, "swing": 0 } ],
+      "robots": [ { "side": "R", "delay": 0.5, "type": "walker" } ]
+    },
+    {
+      "name": "Sıra Sıra", "theme": 0, "shots": 3, "par": 2, "playerX": 4.0,
+      "hint": "Sırayla geliyorlar. Sabırlı ol.",
+      "crates": [
+        { "x": -2.5, "chain": 5.0, "size": 1.4, "swing": 0 },
+        { "x": 0.5, "chain": 4.0, "size": 1.4, "swing": 0 }
+      ],
+      "robots": [
+        { "side": "L", "delay": 0.5, "type": "walker" },
+        { "side": "L", "delay": 4.0, "type": "walker" }
+      ]
+    },
+    {
+      "name": "Kıskaç", "theme": 0, "shots": 3, "par": 2, "playerX": 0.0,
+      "hint": "İki taraftan geliyorlar! Aşağıdan sürükleyerek yer değiştir.",
+      "crates": [
+        { "x": -2.6, "chain": 4.5, "size": 1.4, "swing": 0 },
+        { "x": 2.6, "chain": 4.5, "size": 1.4, "swing": 0 }
+      ],
+      "robots": [
+        { "side": "L", "delay": 0.5, "type": "walker" },
+        { "side": "R", "delay": 2.0, "type": "walker" }
+      ]
+    },
+    {
+      "name": "Koşucu", "theme": 0, "shots": 2, "par": 1, "playerX": 4.0,
+      "hint": "KOŞUCU! Çok hızlı. Önüne nişan al.",
+      "crates": [
+        { "x": -1.0, "chain": 2.5, "size": 1.4, "swing": 0 },
+        { "x": 1.6, "chain": 4.0, "size": 1.4, "swing": 0 }
+      ],
+      "robots": [ { "side": "L", "delay": 0.8, "type": "runner" } ]
+    },
+    {
+      "name": "Büyük Kasa", "theme": 0, "shots": 3, "par": 2, "playerX": 4.5,
+      "hint": "Büyük kasa birden fazla robotu ezebilir.",
+      "crates": [
+        { "x": -1.5, "chain": 4.0, "size": 2.2, "swing": 0 },
+        { "x": 1.5, "chain": 5.0, "size": 1.4, "swing": 0 }
+      ],
+      "robots": [
+        { "side": "L", "delay": 0.5, "type": "walker" },
+        { "side": "L", "delay": 1.4, "type": "walker" },
+        { "side": "L", "delay": 5.0, "type": "walker" }
+      ]
+    },
+    {
+      "name": "Sarkaç", "theme": 0, "shots": 3, "par": 2, "playerX": 4.0,
+      "hint": "Sallanan kasa! Zinciri kopardığın an kasa savrulur.",
+      "crates": [
+        { "x": -1.0, "chain": 5.0, "size": 1.4, "swing": 3.0 },
+        { "x": 2.0, "chain": 6.0, "size": 1.4, "swing": -2.5 }
+      ],
+      "robots": [
+        { "side": "L", "delay": 0.5, "type": "walker" },
+        { "side": "L", "delay": 3.5, "type": "walker" }
+      ]
+    },
+    {
+      "name": "Karmaşa", "theme": 0, "shots": 4, "par": 3, "playerX": 0.0,
+      "hint": "Koşucu sağdan geliyor. Önce onu hallet!",
+      "crates": [
+        { "x": -3.0, "chain": 4.0, "size": 1.4, "swing": 0 },
+        { "x": -0.8, "chain": 5.5, "size": 1.4, "swing": 0 },
+        { "x": 2.8, "chain": 4.0, "size": 1.4, "swing": 0 }
+      ],
+      "robots": [
+        { "side": "L", "delay": 0.5, "type": "walker" },
+        { "side": "R", "delay": 1.0, "type": "runner" },
+        { "side": "L", "delay": 4.5, "type": "walker" }
+      ]
+    },
+    {
+      "name": "Tek Mermi", "theme": 0, "shots": 1, "par": 1, "playerX": 4.5,
+      "hint": "Tek mermi, iki robot. Yan yana gelmelerini bekle...",
+      "crates": [ { "x": -1.7, "chain": 5.0, "size": 2.0, "swing": 0 } ],
+      "robots": [
+        { "side": "L", "delay": 0.0, "type": "walker" },
+        { "side": "L", "delay": 2.5, "type": "runner" }
+      ]
+    },
+    {
+      "name": "Tank", "theme": 0, "shots": 5, "par": 4, "playerX": 0.0,
+      "hint": "TANK! İki kasa yemeden ölmez.",
+      "crates": [
+        { "x": -3.2, "chain": 4.0, "size": 1.4, "swing": 0 },
+        { "x": -1.4, "chain": 6.0, "size": 1.4, "swing": 0 },
+        { "x": 1.6, "chain": 4.5, "size": 1.4, "swing": 0 },
+        { "x": 3.3, "chain": 5.5, "size": 1.4, "swing": 0 }
+      ],
+      "robots": [
+        { "side": "R", "delay": 0.5, "type": "tank" },
+        { "side": "L", "delay": 1.5, "type": "walker" },
+        { "side": "L", "delay": 4.0, "type": "walker" }
+      ]
+    }
+  ]
+}
