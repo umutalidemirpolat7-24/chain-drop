@@ -13,8 +13,9 @@ Hyper-casual mobil oyun: robotları kasanın altına çek, zinciri vur, kasa üs
 
 ## Kontroller
 
-- **Ekranın alt kısmı (zeminin altı):** sürükleyerek karakteri sağa sola götür. Robotlar hep sana yürür.
-- **Ekranın geri kalanı:** dokunduğun yere ateş edersin. Zincire yakın vurursan zincir kopar.
+- **Ekranda boş bir yere bas ve sürükle:** karakter o yöne koşar (yüzen joystick). Editörde WASD / ok tuşları da çalışır.
+- **Kasaya (ya da zincirine) dokun:** karakter nişan alıp zinciri vurur, kasa düşer.
+- Kasanın **yerdeki gölgesi** düşeceği yeri gösterir. Gölge küçük ve soluksa kasa yüksektedir, geç düşer.
 - Düşen kasa robotu ezer, ama **seni de ezer**.
 - Editörde sol altta `<` `>` düğmeleriyle bölüm atlayabilirsin (sadece test için).
 
@@ -22,30 +23,30 @@ Hyper-casual mobil oyun: robotları kasanın altına çek, zinciri vur, kasa üs
 
 Bütün bölümler tek dosyada: `Assets/ChainDrop/Resources/ChainDrop/levels.json`
 
+Arena: `x = -5 … 5`, `y = -7 … 6` (kuşbakışı zemin).
+
 | Alan | Anlamı |
 |---|---|
 | `theme` | 0 Fabrika, 1 Maden, 2 Liman, 3 Santral, 4 Robot Üssü |
 | `shots` | mermi sayısı |
 | `par` | 3 yıldız için en fazla kaç mermi |
-| `playerX` | başlangıç konumu (-5 … 5) |
-| `crates[].x` | kasanın yatay konumu |
-| `crates[].chain` | zincir uzunluğu (kısa = yüksek = geç düşer) |
-| `crates[].size` | 1.4 normal, 2.0+ büyük (birden fazla robot ezer) |
-| `crates[].swing` | 0 sabit, ± sallanan sarkaç |
-| `robots[].side` | `L` soldan, `R` sağdan |
+| `px`, `py` | oyuncunun başlangıç noktası |
+| `crates[].x`, `y` | kasanın gölgesinin yeri |
+| `crates[].h` | yükseklik (3 alçak, 5 normal, 8 çok yüksek = geç düşer) |
+| `crates[].size` | 1.8 normal, 2.8+ büyük (birden fazla robot ezer) |
+| `crates[].swing`, `axis` | sallanma genliği ve yönü (`"x"` / `"y"`), 0 = sabit |
+| `robots[].x`, `y` | çıkış kapısı (duvarın hemen içi: üst `y=5.4`, alt `y=-6.4`, sol `x=-4.4`, sağ `x=4.4`) |
 | `robots[].delay` | kaçıncı saniyede çıkar |
 | `robots[].type` | `walker` normal, `runner` hızlı, `tank` 2 kasa ister |
-
-Dünya koordinatları: zemin `y = 0`, tavan `y = 11`, görünen alan yaklaşık `x = -5.5 … 5.5`.
 
 ## Kod yapısı
 
 | Dosya | Görev |
 |---|---|
 | `GameManager.cs` | Açılış, bölüm yükleme, giriş, kazan/kaybet, efektler, geçici arayüz |
-| `HangingCrate.cs` | Zincirli kasa (HingeJoint2D zinciri) + `ChainLink` |
-| `Robot.cs` | Düşman yapay zekâsı ve ezilme |
-| `Player.cs` | Yem karakter |
+| `Crate.cs` | Asılı kasa, gölgesi, zinciri, düşüşü |
+| `Robot.cs` | Kovalayan robot, engelden kaçınma, ezilme |
+| `Player.cs` | Koşan, nişan alan karakter |
 | `Theme.cs` | Dünya renk paletleri |
 | `Sfx.cs` | Koddan üretilen geçici sesler |
 | `LevelData.cs` | JSON bölüm formatı |
