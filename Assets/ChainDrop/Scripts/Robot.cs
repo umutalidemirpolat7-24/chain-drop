@@ -17,7 +17,9 @@ namespace ChainDrop
         Material flashMat;
         float speed, stunUntil, flashUntil, walkT, sideSign = 1f, sideUntil;
         int hp;
-        Crate lastHitBy;
+        object lastHitBy;
+        string type;
+        float avoidSince = -1f, ignoreMarkersUntil;
         Color bodyColor;
 
         public static Robot Spawn(GameManager gm, RobotDef d, Transform parent, Theme th)
@@ -29,12 +31,14 @@ namespace ChainDrop
 
             var r = go.AddComponent<Robot>();
             r.gm = gm;
+            r.type = type;
             Color body = th.robot;
             float k = 1f;   // size multiplier
             switch (type)
             {
                 case "runner": r.speed = 2.1f; r.hp = 1; body = Util.Hex("#e0a020"); k = 0.8f; break;
                 case "tank": r.speed = 0.85f; r.hp = 2; body = Util.Hex("#7a5cc8"); k = 1.35f; break;
+                case "scout": r.speed = 1.35f; r.hp = 1; body = Util.Hex("#3fbf7f"); k = 0.95f; break;
                 default: r.speed = 1.15f; r.hp = 1; break;
             }
             r.bodyColor = body;
@@ -74,6 +78,10 @@ namespace ChainDrop
             // Antenna + blinking beacon
             Util.Prim(PrimitiveType.Cylinder, "antenna", v, new Vector3(0.15f * k, 1.42f * k, 0), new Vector3(0.03f, 0.12f * k, 0.03f), darkMat);
             r.beacon = Util.Prim(PrimitiveType.Sphere, "beacon", v, new Vector3(0.15f * k, 1.58f * k, 0), Vector3.one * 0.08f, eyeMat).transform;
+            if (type == "scout")
+            {
+                Util.Prim(PrimitiveType.Cylinder, "scanner", v, new Vector3(0, 1.36f * k, 0.05f), new Vector3(0.34f * k, 0.03f, 0.34f * k), Util.Glow(Util.Hex("#3fff9f"), 2f));
+            }
             if (type == "tank")
             {
                 Util.Cube("armorL", v, new Vector3(-0.42f * k, 0.95f * k, 0), new Vector3(0.12f, 0.2f * k, 0.6f * k), Util.Mat(th.metal, 0.6f, 0.8f));
@@ -99,6 +107,9 @@ namespace ChainDrop
             Vector3 to = Util.W(gm.player.Pos - Pos);
             if (to.sqrMagnitude < 0.0001f) return;
             Vector3 dir = to.normalized;
+            float spd = speed;
+
+            if (type == "scout") ScoutSteer(ref dir, ref spd);
 
             // Simple obstacle avoidance: if a landed crate is ahead, slide around it
             bool blocked = false;
@@ -117,8 +128,55 @@ namespace ChainDrop
                 break;
             }
             Vector3 steer = blocked ? (new Vector3(-dir.z, 0, dir.x) * sideSign + dir * 0.25f).normalized : dir;
-            rb.SetVel(Vector3.Lerp(rb.GetVel(), steer * speed, 0.3f));
-            walkT += Time.fixedDeltaTime * speed * 6f;
+            rb.SetVel(Vector3.Lerp(rb.GetVel(), steer * spd, 0.3f));
+            walkT += Time.fixedDeltaTime * spd * 6f;
+        }
+
+        /// <summary>
+        /// Scout: never steps onto a red landing marker and jumps aside from a crate that is about to land.
+        /// If it is boxed in for too long it gives up and runs straight across (that is your chance).
+        /// </summary>
+        void ScoutSteer(ref Vector3 dir, ref float spd)
+        {
+            Vector2 me = Pos;
+            if (Time.time < ignoreMarkersUntil) { spd = speed * 1.5f; return; }   // panicking: runs straight, no dodging
+
+            // 1) dodge a crate that is falling right above it
+            foreach (var c in gm.Crates)
+            {
+                if (!c.Released || c.Landed || c.Bottom > 3.2f) continue;
+                Vector2 d = me - c.Ground;
+                if (Mathf.Abs(d.x) < c.Size * 0.5f + 0.9f && Mathf.Abs(d.y) < c.Size * 0.5f + 0.9f)
+                {
+                    if (d.sqrMagnitude < 0.01f) d = Vector2.right;
+                    dir = Util.W(d.normalized);
+                    spd = speed * 1.6f;
+                    return;
+                }
+            }
+            // 2) walk around red markers of hanging crates
+            Vector2 ahead = me + Util.G(dir) * 1.0f;
+            Crate block = null;
+            foreach (var c in gm.Crates)
+            {
+                if (c.Released) continue;
+                Vector2 d = ahead - c.Ground;
+                float half = c.Size * 0.5f + Radius + 0.15f;
+                if (Mathf.Abs(d.x) < half && Mathf.Abs(d.y) < half) { block = c; break; }
+            }
+            if (block == null) { avoidSince = -1f; return; }
+
+            if (avoidSince < 0) avoidSince = Time.time;
+            if (Time.time - avoidSince > 2.5f)
+            {
+                ignoreMarkersUntil = Time.time + 1.2f;   // boxed in: dash across
+                avoidSince = -1f;
+                return;
+            }
+            Vector2 toC = block.Ground - me;
+            float cross = dir.x * toC.y - dir.z * toC.x;
+            Vector2 perp = new Vector2(-dir.z, dir.x) * (cross > 0 ? -1f : 1f);
+            dir = Util.W((perp + Util.G(dir) * 0.15f).normalized);
         }
 
         void Update()
@@ -135,18 +193,18 @@ namespace ChainDrop
             for (int i = 0; i < parts.Length; i++) parts[i].sharedMaterial = flash ? flashMat : baseMats[i];
         }
 
-        /// <summary>Called by a falling crate whose footprint overlaps this robot.</summary>
-        public void Hit(Crate crate)
+        /// <summary>Called by a falling crate or an explosion. Each source only counts once.</summary>
+        public void Hit(object source, Vector2 from)
         {
-            if (Dead || crate == lastHitBy) return;
-            lastHitBy = crate;
+            if (Dead || source == lastHitBy) return;
+            lastHitBy = source;
             hp--;
             if (hp <= 0) { Die(); return; }
 
             // Tank survives the first hit: stunned and knocked away from the crate
             stunUntil = Time.time + 1.1f;
             flashUntil = Time.time + 0.18f;
-            Vector2 away = Pos - crate.Ground;
+            Vector2 away = Pos - from;
             away = away.sqrMagnitude < 0.01f ? Vector2.down : away.normalized;
             rb.SetVel(Util.W(away * 7f));
             gm.Shake(0.25f);

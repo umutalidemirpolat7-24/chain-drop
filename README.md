@@ -37,7 +37,9 @@ Arena zemini: `x = -5 … 5` (sol/sağ), `z = -7 … 6` (yakın/uzak). Yüksekli
 | `crates[].swing`, `axis` | sallanma genliği ve yönü (`"x"` / `"z"`), 0 = sabit |
 | `robots[].x`, `z` | çıkış kapısı (duvarın hemen içi: arka `z=5.4`, ön `z=-6.4`, sol `x=-4.4`, sağ `x=4.4`) |
 | `robots[].delay` | kaçıncı saniyede çıkar |
-| `robots[].type` | `walker` normal, `runner` hızlı, `tank` 2 kasa ister |
+| `robots[].type` | `walker` normal, `runner` hızlı, `tank` 2 vuruş ister, `scout` kırmızı işarete basmaz ve düşen kasadan kaçar |
+| `crates[].rail`, `rx`, `rz` | `true` ise kasa raylı vinçte; duvardaki renkli düğme vurulunca (`rx`,`rz`) noktasına kayar |
+| `barrels[].x`, `z` | patlayıcı varil: üstüne kasa düşerse ya da yakınında patlama olursa patlar |
 
 ## Kod yapısı
 

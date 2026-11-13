@@ -32,6 +32,10 @@ namespace ChainDrop
         Transform levelRoot;
         readonly List<Robot> robots = new List<Robot>();
         readonly List<Crate> crates = new List<Crate>();
+        readonly List<Barrel> barrels = new List<Barrel>();
+        public IReadOnlyList<Crate> Crates => crates;
+        int railIndex;
+        public int NextRailIndex() => railIndex++;
         int kills, shots, shotsUsed, stars;
         string loseReason = "";
         float shakeAmt, levelStartTime, defaultFixedDt, lastAspect = -1f;
@@ -103,6 +107,8 @@ namespace ChainDrop
             if (levelRoot != null) { levelRoot.gameObject.SetActive(false); Destroy(levelRoot.gameObject); }
             robots.Clear();
             crates.Clear();
+            barrels.Clear();
+            railIndex = 0;
             kills = 0; shotsUsed = 0; stars = 0; shakeAmt = 0; joyActive = false;
 
             levelIndex = Mathf.Clamp(index, 0, pack.levels.Length - 1);
@@ -115,6 +121,7 @@ namespace ChainDrop
             FitCamera();
             BuildArena();
             foreach (var c in L.crates) crates.Add(Crate.Build(this, c, levelRoot, theme));
+            if (L.barrels != null) foreach (var b in L.barrels) barrels.Add(Barrel.Spawn(b, levelRoot, theme));
             player = Player.Spawn(this, new Vector2(L.px, L.pz), levelRoot, theme);
 
             levelStartTime = Time.time;
@@ -299,8 +306,10 @@ namespace ChainDrop
                 var guiPt = new Vector2(sp.x, Screen.height - sp.y);
                 if (!restartRect.Contains(guiPt))
                 {
-                    var crate = CrateAt(sp);
-                    if (crate != null) Shoot(crate);
+                    var railCrate = ButtonAt(sp);
+                    var crate = railCrate == null ? CrateAt(sp) : null;
+                    if (railCrate != null) ShootButton(railCrate);
+                    else if (crate != null) Shoot(crate);
                     else { joyActive = true; joyStart = joyNow = sp; }
                 }
             }
@@ -350,6 +359,32 @@ namespace ChainDrop
             return best;
         }
 
+        /// <summary>Finds a rail crate whose wall button is under a screen point.</summary>
+        Crate ButtonAt(Vector2 sp)
+        {
+            float tol = Screen.height * 0.04f;
+            foreach (var c in crates)
+            {
+                if (!c.HasRail || c.Released) continue;
+                Vector3 bs = cam.WorldToScreenPoint(c.ButtonPos);
+                if (bs.z > 0 && Vector2.Distance(sp, bs) < tol) return c;
+            }
+            return null;
+        }
+
+        void ShootButton(Crate c)
+        {
+            if (shots <= 0) { sfx.Empty(); return; }
+            shots--;
+            shotsUsed++;
+            player.AimAt(c.ButtonPos);
+            StartCoroutine(Tracer(player.GunTip, c.ButtonPos));
+            c.ToggleRail();
+            sfx.Shot();
+            sfx.Clank();
+            Sparks(c.ButtonPos, new Color(1f, 0.85f, 0.3f), 8);
+        }
+
         static float DistToSegment(Vector2 p, Vector2 a, Vector2 b)
         {
             Vector2 ab = b - a;
@@ -382,7 +417,13 @@ namespace ChainDrop
             {
                 if (r.Dead) continue;
                 var d = r.Pos - c.Ground;
-                if (Mathf.Abs(d.x) < half + r.Radius && Mathf.Abs(d.y) < half + r.Radius) r.Hit(c);
+                if (Mathf.Abs(d.x) < half + r.Radius && Mathf.Abs(d.y) < half + r.Radius) r.Hit(c, c.Ground);
+            }
+            foreach (var b in barrels)
+            {
+                if (b.Exploded) continue;
+                var d = b.Ground - c.Ground;
+                if (Mathf.Abs(d.x) < half + Barrel.Radius && Mathf.Abs(d.y) < half + Barrel.Radius) Explode(b);
             }
             if (State == GameState.Playing)
             {
@@ -393,6 +434,63 @@ namespace ChainDrop
                     Lose("Kasa senin üstüne düştü!");
                 }
             }
+        }
+
+        /// <summary>Barrel explosion: kills robots nearby, snaps nearby chains, sets off other barrels.</summary>
+        void Explode(Barrel b)
+        {
+            if (b.Exploded) return;
+            b.MarkExploded();
+            Vector2 at = b.Ground;
+            var token = new object();
+            foreach (var r in robots)
+                if (!r.Dead && Vector2.Distance(r.Pos, at) < Barrel.BlastRadius + r.Radius) r.Hit(token, at);
+            foreach (var c in crates)
+                if (!c.Released && Vector2.Distance(c.Ground, at) < 1.6f) c.Release();
+            if (State == GameState.Playing && Vector2.Distance(player.Pos, at) < Barrel.BlastRadius - 0.6f)
+            {
+                player.Squash();
+                Lose("Patlamaya çok yakındın!");
+            }
+            StartCoroutine(Blast(Util.W(at, 0.6f)));
+            sfx.Crush();
+            sfx.Thud();
+            Shake(0.55f);
+            foreach (var other in barrels)
+                if (!other.Exploded && Vector2.Distance(other.Ground, at) < Barrel.BlastRadius)
+                    StartCoroutine(ExplodeLater(other, 0.18f));
+        }
+
+        IEnumerator ExplodeLater(Barrel b, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            Explode(b);
+        }
+
+        IEnumerator Blast(Vector3 at)
+        {
+            var fire = Util.Glow(new Color(1f, 0.55f, 0.15f), 5f);
+            var core = Util.Glow(new Color(1f, 0.9f, 0.5f), 8f);
+            var ball = Util.Prim(PrimitiveType.Sphere, "blast", levelRoot, at, Vector3.one * 0.5f, fire);
+            var inner = Util.Prim(PrimitiveType.Sphere, "blastCore", levelRoot, at, Vector3.one * 0.3f, core);
+            var l = ball.AddComponent<Light>();
+            l.type = LightType.Point;
+            l.color = new Color(1f, 0.6f, 0.2f);
+            l.range = 10f;
+            l.intensity = 8f;
+            Debris(at, new Color(0.75f, 0.2f, 0.15f));
+            for (float t = 0; t < 0.35f; t += Time.deltaTime)
+            {
+                if (ball == null) yield break;
+                float k = t / 0.35f;
+                ball.transform.localScale = Vector3.one * Mathf.Lerp(0.5f, Barrel.BlastRadius * 2f, Mathf.Sqrt(k));
+                inner.transform.localScale = Vector3.one * Mathf.Lerp(0.3f, Barrel.BlastRadius, k);
+                l.intensity = 8f * (1f - k);
+                yield return null;
+            }
+            if (ball != null) Destroy(ball);
+            if (inner != null) Destroy(inner);
+            if (L != null) OilStain(Util.G(at));
         }
 
         public void OnCrateLanded(Crate c)
@@ -556,7 +654,7 @@ namespace ChainDrop
             GUI.color = new Color(0, 0, 0, 0.45f);
             GUI.DrawTexture(new Rect(0, 0, W, 12f * u), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(3f * u, 1.5f * u, 50f * u, 9f * u), $"BÖLÜM {levelIndex + 1}", sSmall);
+            GUI.Label(new Rect(3f * u, 1.5f * u, 50f * u, 9f * u), $"{theme.name}  ·  BÖLÜM {levelIndex + 1}", sSmall);
 
             float bw = 2.2f * u, bh = 5.5f * u;
             float ax = W - 24f * u - L.shots * (bw + 1.2f * u);

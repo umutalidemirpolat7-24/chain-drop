@@ -391,6 +391,513 @@
           "type": "walker"
         }
       ]
+    },
+    {
+      "name": "Varil",
+      "theme": 1,
+      "shots": 2,
+      "par": 1,
+      "px": 0,
+      "pz": -5,
+      "hint": "Kasayı VARİLE düşür: patlama yanındaki herkesi yok eder!",
+      "crates": [
+        {
+          "x": 0,
+          "z": 0.5,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": -1.8,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        },
+        {
+          "x": 1.8,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        }
+      ],
+      "barrels": [
+        {
+          "x": 0,
+          "z": 0.5
+        }
+      ]
+    },
+    {
+      "name": "Zincirleme",
+      "theme": 1,
+      "shots": 2,
+      "par": 1,
+      "px": 0,
+      "pz": -5.5,
+      "hint": "Variller birbirini patlatır. Robotlar sıranın yanındayken zinciri başlat!",
+      "crates": [
+        {
+          "x": -3,
+          "z": 1,
+          "h": 4.5,
+          "size": 2.0,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": -2,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        },
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1.3,
+          "type": "walker"
+        },
+        {
+          "x": 2,
+          "z": 5.4,
+          "delay": 1.6,
+          "type": "walker"
+        }
+      ],
+      "barrels": [
+        {
+          "x": -3,
+          "z": 1
+        },
+        {
+          "x": -1,
+          "z": 1
+        },
+        {
+          "x": 1,
+          "z": 1
+        },
+        {
+          "x": 3,
+          "z": 1
+        }
+      ]
+    },
+    {
+      "name": "Ray",
+      "theme": 1,
+      "shots": 3,
+      "par": 1,
+      "px": 3,
+      "pz": -5,
+      "hint": "Renkli DÜĞMEYİ vur: kasa rayda kayar. Ya da robotu kasaya sen getir!",
+      "crates": [
+        {
+          "x": -3,
+          "z": 0,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x",
+          "rail": true,
+          "rx": 3,
+          "rz": 0
+        }
+      ],
+      "robots": [
+        {
+          "x": 3,
+          "z": 5.4,
+          "delay": 1.5,
+          "type": "walker"
+        }
+      ],
+      "barrels": []
+    },
+    {
+      "name": "İki Ray",
+      "theme": 1,
+      "shots": 5,
+      "par": 2,
+      "px": 0,
+      "pz": -5.5,
+      "hint": "Her rayın kendi rengindeki düğmesi var.",
+      "crates": [
+        {
+          "x": -3.5,
+          "z": 2,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x",
+          "rail": true,
+          "rx": 0,
+          "rz": 2
+        },
+        {
+          "x": 3.5,
+          "z": -1.5,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x",
+          "rail": true,
+          "rx": 0,
+          "rz": -1.5
+        }
+      ],
+      "robots": [
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        },
+        {
+          "x": 4.4,
+          "z": 3,
+          "delay": 5,
+          "type": "runner"
+        }
+      ],
+      "barrels": []
+    },
+    {
+      "name": "Gözcü",
+      "theme": 1,
+      "shots": 3,
+      "par": 1,
+      "px": 0,
+      "pz": -5.5,
+      "hint": "YEŞİL GÖZCÜ kırmızı işarete basmaz! Sallanan kasayla ya da varille yakala.",
+      "crates": [
+        {
+          "x": 0,
+          "z": 0.5,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 2.5,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1,
+          "type": "scout"
+        }
+      ],
+      "barrels": [
+        {
+          "x": 2.5,
+          "z": -1.5
+        }
+      ]
+    },
+    {
+      "name": "Gözcü ve Ray",
+      "theme": 1,
+      "shots": 4,
+      "par": 2,
+      "px": 0,
+      "pz": -5.5,
+      "hint": "Gözcü işaretin etrafından dolaşır. Kasayı onun yoluna sen kaydır!",
+      "crates": [
+        {
+          "x": -3,
+          "z": 0,
+          "h": 4,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x",
+          "rail": true,
+          "rx": 0.5,
+          "rz": 0
+        },
+        {
+          "x": 3,
+          "z": -2,
+          "h": 4,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1,
+          "type": "scout"
+        },
+        {
+          "x": -4.4,
+          "z": -3,
+          "delay": 6,
+          "type": "walker"
+        }
+      ],
+      "barrels": []
+    },
+    {
+      "name": "Kapan",
+      "theme": 1,
+      "shots": 3,
+      "par": 1,
+      "px": 0,
+      "pz": -5.5,
+      "hint": "Gözcüyü işaretlerin arasına kıstır. Sabrı taşıp koşmaya başlayınca VUR!",
+      "crates": [
+        {
+          "x": -3.2,
+          "z": 0,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": 0,
+          "z": 0,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": 3.2,
+          "z": 0,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1,
+          "type": "scout"
+        }
+      ],
+      "barrels": []
+    },
+    {
+      "name": "Maden Karmaşası",
+      "theme": 1,
+      "shots": 5,
+      "par": 3,
+      "px": 0,
+      "pz": -5,
+      "hint": "Her şey bir arada. Sakin ol, sırayla.",
+      "crates": [
+        {
+          "x": -2.5,
+          "z": 2,
+          "h": 4.5,
+          "size": 2.0,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": 2.5,
+          "z": -2,
+          "h": 4.5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": 0,
+          "z": -0.5,
+          "h": 5,
+          "size": 2.2,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": -2,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        },
+        {
+          "x": 4.4,
+          "z": 4,
+          "delay": 3,
+          "type": "runner"
+        },
+        {
+          "x": 2,
+          "z": 5.4,
+          "delay": 5,
+          "type": "walker"
+        },
+        {
+          "x": -4.4,
+          "z": -1,
+          "delay": 7,
+          "type": "scout"
+        }
+      ],
+      "barrels": [
+        {
+          "x": -2.5,
+          "z": 2
+        },
+        {
+          "x": 2.5,
+          "z": 2.5
+        }
+      ]
+    },
+    {
+      "name": "Tek Mermi II",
+      "theme": 1,
+      "shots": 1,
+      "par": 1,
+      "px": 0,
+      "pz": -5.5,
+      "hint": "TEK MERMİ! Hepsi varillerin yanındayken zinciri başlat.",
+      "crates": [
+        {
+          "x": 0,
+          "z": 2,
+          "h": 5,
+          "size": 2.0,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": -2.5,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        },
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        },
+        {
+          "x": 2.5,
+          "z": 5.4,
+          "delay": 1,
+          "type": "walker"
+        },
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 2.5,
+          "type": "scout"
+        }
+      ],
+      "barrels": [
+        {
+          "x": -1.5,
+          "z": 1
+        },
+        {
+          "x": 0,
+          "z": 2
+        },
+        {
+          "x": 1.5,
+          "z": 1
+        },
+        {
+          "x": 0,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "name": "Maden Tankı",
+      "theme": 1,
+      "shots": 7,
+      "par": 4,
+      "px": 0,
+      "pz": -5.5,
+      "hint": "İKİ TANK! Patlama da bir vuruş sayılır.",
+      "crates": [
+        {
+          "x": -3,
+          "z": 2,
+          "h": 4.5,
+          "size": 2.0,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": 3,
+          "z": 2,
+          "h": 4.5,
+          "size": 2.0,
+          "swing": 0,
+          "axis": "x"
+        },
+        {
+          "x": -3,
+          "z": -2,
+          "h": 4.5,
+          "size": 2.4,
+          "swing": 0,
+          "axis": "x",
+          "rail": true,
+          "rx": 3,
+          "rz": -2
+        },
+        {
+          "x": 0,
+          "z": 0.5,
+          "h": 5,
+          "size": 2.4,
+          "swing": 0,
+          "axis": "x"
+        }
+      ],
+      "robots": [
+        {
+          "x": 0,
+          "z": 5.4,
+          "delay": 1,
+          "type": "tank"
+        },
+        {
+          "x": -4.4,
+          "z": 3,
+          "delay": 4,
+          "type": "scout"
+        },
+        {
+          "x": 4.4,
+          "z": 0,
+          "delay": 7,
+          "type": "tank"
+        }
+      ],
+      "barrels": [
+        {
+          "x": -3,
+          "z": 2
+        },
+        {
+          "x": 3,
+          "z": 2
+        }
+      ]
     }
   ]
 }

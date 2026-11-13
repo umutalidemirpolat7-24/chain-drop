@@ -20,8 +20,14 @@ namespace ChainDrop
         public Vector3 ChainPoint => body.position + Vector3.up * (Size / 2f + 0.25f);
         public Vector3 PivotPoint => pivot.position;
 
+        public bool HasRail { get; private set; }
+        public Vector3 ButtonPos => button != null ? button.position : Vector3.zero;
+
         GameManager gm;
-        Transform pivot, body, marker;
+        Transform pivot, body, marker, button;
+        Vector3 railA, railB;
+        float railT, railTarget;
+        const float RailSpeed = 2.6f;
         Vector3 vel, prevPos, swingAxis, spin;
         float swingAngle, swingT, length;
 
@@ -63,7 +69,8 @@ namespace ChainDrop
             c.body.localPosition = new Vector3(0, -c.length - s / 2f, 0);
             var steel = Util.Mat(th.metal, 0.55f, 0.75f);
             var dark = Util.Mat(th.metalDark, 0.4f, 0.6f);
-            var accent = Util.Mat(th.accent, 0.4f, 0.1f);
+            Color code = d.rail ? RailColor(gm.NextRailIndex()) : th.accent;
+            var accent = Util.Mat(code, 0.4f, 0.1f);
             Util.Cube("box", c.body, Vector3.zero, Vector3.one * s, steel);
             Util.Cube("strapX", c.body, Vector3.zero, new Vector3(s * 1.02f, s * 0.14f, s * 1.02f), dark);
             Util.Cube("strapY", c.body, Vector3.zero, new Vector3(s * 0.14f, s * 1.02f, s * 1.02f), dark);
@@ -80,6 +87,27 @@ namespace ChainDrop
             Util.Cube("mE", c.marker, new Vector3(m, 0, 0), new Vector3(t, 0.02f, s), red);
             Util.Cube("mW", c.marker, new Vector3(-m, 0, 0), new Vector3(t, 0.02f, s), red);
             Util.Cube("mFill", c.marker, Vector3.zero, new Vector3(s * 0.92f, 0.01f, s * 0.92f), Util.Mat(Util.Hex("#3a1414"), 0.1f));
+
+            if (d.rail)
+            {
+                c.HasRail = true;
+                c.railA = new Vector3(d.x, PivotY, d.z);
+                c.railB = new Vector3(d.rx, PivotY, d.rz);
+                var glow = Util.Glow(code, 2.5f);
+                // dashed guide line on the floor from A to B
+                var a2 = new Vector3(d.x, 0.012f, d.z);
+                var b2 = new Vector3(d.rx, 0.012f, d.rz);
+                float len = Vector3.Distance(a2, b2);
+                for (float t2 = 0; t2 <= len; t2 += 0.5f)
+                    Util.Cube("railDash", go.transform, Vector3.Lerp(a2, b2, len < 0.01f ? 0 : t2 / len), new Vector3(0.22f, 0.01f, 0.22f), glow);
+                Util.Cube("railEnd", go.transform, b2 + Vector3.up * 0.002f, new Vector3(0.5f, 0.012f, 0.5f), glow);
+                // button on the back wall
+                c.button = new GameObject("RailButton").transform;
+                c.button.SetParent(go.transform, false);
+                c.button.position = new Vector3((d.x + d.rx) / 2f, 2.9f, GameManager.MaxZ - 0.12f);
+                Util.Cube("housing", c.button, Vector3.zero, new Vector3(0.9f, 0.9f, 0.2f), dark);
+                Util.Prim(PrimitiveType.Sphere, "knob", c.button, new Vector3(0, 0, -0.12f), new Vector3(0.55f, 0.55f, 0.3f), glow);
+            }
 
             if (Mathf.Abs(d.swing) > 0.01f)
             {
@@ -104,6 +132,12 @@ namespace ChainDrop
                 pivot.localRotation = Quaternion.AngleAxis(swingAngle * Mathf.Sin(swingT * SwingW) * Mathf.Rad2Deg, swingAxis);
             }
 
+            if (HasRail)
+            {
+                railT = Mathf.MoveTowards(railT, railTarget, dt * RailSpeed / Mathf.Max(0.5f, Vector3.Distance(railA, railB)));
+                pivot.position = Vector3.Lerp(railA, railB, Mathf.SmoothStep(0, 1, railT));
+            }
+
             if (!Released)
             {
                 vel = (body.position - prevPos) / dt;
@@ -126,6 +160,20 @@ namespace ChainDrop
             var p = body.position;
             marker.position = new Vector3(p.x, 0.03f, p.z);
             marker.rotation = Quaternion.identity;
+        }
+
+        /// <summary>Shooting the wall button slides the crate to the other end of its rail (and back).</summary>
+        public void ToggleRail()
+        {
+            if (!HasRail) return;
+            railTarget = railTarget < 0.5f ? 1f : 0f;
+            if (button != null) button.localScale = new Vector3(1f, 1f, 0.6f);
+        }
+
+        static Color RailColor(int i)
+        {
+            var colors = new[] { "#ffd23f", "#3fd0ff", "#ff5fd2" };
+            return Util.Hex(colors[i % colors.Length]);
         }
 
         public void Release()
